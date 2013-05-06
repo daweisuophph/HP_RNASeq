@@ -121,7 +121,7 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 		cerr << "--bams <BAM filename 1>,<BAM filename 2>,..." << endl;	
 		cerr << "--output <output directory>" << endl;
 		cerr << "--min-read <minimum number of reads>" << endl;
-		//cerr << "--read-len <read length>" << endl;
+		cerr << "--read-len <read length>" << endl;
 		cerr << "--overhang-len <overhang length>" << endl;	
 		cerr << "--paired-end <mean> <std>" << endl;	
 		cerr << "--in-iter <# of inner iters>" << endl;	
@@ -149,7 +149,9 @@ int main(int argc, char **argv) {
 		cerr << "------------------------------------------" << endl
 			<< "Computing:" << endl << ii->toString() << endl;
 		HP_Model model(*ii);
-		model.preprocessing();
+		if (model.preprocessing()) {
+			model.performBVI();
+		}
 	}
 	
 	return 0;

@@ -9,6 +9,8 @@
 #include "HP_Read.h"
 #include "HP_Gene.h"
 
+#define MAX_NEWTON_ITER 1000
+
 using namespace std;
 
 class HP_Param {
@@ -53,21 +55,37 @@ private:
 	//isoform->alpha
 	vector<double> alpha;
 	//sub->isoform->beta
-	vector<vector<double> >betas;
+	vector<vector<double> >betasBySub;
 	//sub->read->isoform->r
-	vector<vector<vector<double> > > rs;
+	vector<vector<vector<double> > > rsBySub;
+	//isoform->(digamma(beta_k) - diagmma(sum(beta)))
+	vector<double> weights;
+	//isoform->(log_score_k + weights_k)
+	vector<double> weightedScore;
+	//isoform->sum(digamma(beta_k)-digamma(sum(beta)))
+	vector<double> ss;
+	//isoform->diagnal_Hessian
+	vector<double> q;
+	//isoform->gradient
+	vector<double> g;
+	bool isFinished;
+	
 
 	void loadGene();
 	void loadReads();
 	void computeAlignments();
 	void computeLogScore();
 	void initVariables();
+	void updateRs(int subInd);
+	void updateBetas(int subInd);
+	void updateAlpha();
+	void save();
 
 public:
 	HP_Gene gene;
 	void addRead(const HP_Read &read, int index);
 	HP_Model(const HP_Param &param);
-	void preprocessing();
+	bool preprocessing();
 	//perform Bayesian variational inference
 	void performBVI();
 };

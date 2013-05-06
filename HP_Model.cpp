@@ -1,11 +1,15 @@
 #include <cstdlib>
 #include <sstream>
+#include <fstream>
 #include <limits>
 #include <cmath>
 #include "HP_Model.h"
 #include "HP_Gff.h"
 #include <boost/math/distributions/normal.hpp>
+#include <boost/math/special_functions/digamma.hpp>
+#include <boost/filesystem.hpp>
 #include "sam.h"
+#include "asa121.h"
 
 using namespace std;
 using namespace boost::math;
@@ -173,27 +177,32 @@ void HP_Model::initVariables() {
 	for (int i = 0; i < numIsos; i++) {
 		alpha[i] = 1.0;
 	}
-	betas = vector<vector<double> >(numSubs);
+	betasBySub = vector<vector<double> >(numSubs);
 	for (int i = 0; i < numSubs; i++) {
-		betas[i] = vector<double>(numIsos);
+		betasBySub[i] = vector<double>(numIsos);
 	}
-	rs = vector<vector<vector<double> > >(numSubs);
+	rsBySub = vector<vector<vector<double> > >(numSubs);
 	for (int i = 0; i < numSubs; i++) {
-		rs[i] = vector<vector<double> >(numReadsBySub[i]);
+		rsBySub[i] = vector<vector<double> >(numReadsBySub[i]);
 		for (int j = 0; j < numReadsBySub[i]; j++) {
-			rs[i][j] = vector<double>(numIsos);
+			rsBySub[i][j] = vector<double>(numIsos);
 		}
 	}
+	weights = vector<double>(numIsos);
+	weightedScore = vector<double>(numIsos);
+	ss = vector<double>(numIsos);
+	q = vector<double>(numIsos);
+	g = vector<double>(numIsos);
 }
 
 
 // load data and initialize variables
-void HP_Model::preprocessing() {
+bool HP_Model::preprocessing() {
 	cerr << "Loading gene..." << endl;
 	loadGene();
 	if (gene.mRNAs.size() <= 1) {
 		cerr << "Warning: number of isoforms is less than 2. Skipping..." << endl;
-		return;
+		return false;
 	}
 	cerr << "Loading read..." << endl;
 	loadReads();
@@ -201,13 +210,22 @@ void HP_Model::preprocessing() {
 	computeAlignments();
 	if (alignmentsBySub.size() == 0) {
 		cerr << "Warning: numbers of aligned reads for all subjects are below the threshold: " << param.minRead << ". skippping ..." << endl;
-		return;
+		return false;
 	}
 	cerr << "Computing log score..." << endl;
 	computeLogScore();
 	cerr << "Initializing variables..." << endl;
 	initVariables();
+	// create directory to store output
+	param.outputDir += "/" + gene.seqid;
+	try {
+		boost::filesystem::create_directories(param.outputDir);
+	} catch (const boost::filesystem::filesystem_error& e) {
+		cerr << "Warning: cannot create dicrectory \"" << param.outputDir << "\"."<< endl;
+		return false;
+	}
 	cerr << endl;
+	return true;
 }
 
 void HP_Model::addRead(const HP_Read &read, int ind) {
@@ -297,8 +315,196 @@ void HP_Model::computeAlignments() {
 	cerr << "Number of effective subjects: " << alignmentsBySub.size() << endl;
 }
 
-void HP_Model::performBVI() {
+static inline bool allClose(const vector<double> &a, const vector<double> &b, double thres) {
+	if (a.size() != b.size()) return false;
+	for (int i = 0; i < a.size(); i++) {
+		if (abs(a[i]-b[i])>thres) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static inline double logSumExp(vector<double> &a) {
+	double maxA = -numeric_limits<double>::max();
+	for (int i = 0 ; i < a.size(); i++ ){
+		if (a[i] > maxA) {
+			maxA = a[i];
+		}
+	}
+	double sum = 0;
+	for (int i = 0; i < a.size(); i++) {
+		sum += exp(a[i]-maxA);
+	}
+	return maxA + log(sum);
 	
+}
+
+void HP_Model::updateRs(int subInd) {
+	vector<double> &betas = betasBySub[subInd];
+	vector<vector<double> > &rs = rsBySub[subInd];
+	double sumBetas = 0.0;
+	for (int l = 0; l < numIsos; l++) {
+		sumBetas += betas[l];
+	}
+	double digammaSumBetas = digamma(sumBetas);
+	for (int k = 0; k < numIsos; k++) {
+		weights[k] = digamma(betas[k]) - digammaSumBetas;
+	}
+	for (int n = 0; n < numReadsBySub[subInd]; n++) {
+		for (int k = 0; k < numIsos; k++) {
+			weightedScore[k] = logScore[subInd][n][k] + weights[k];
+		}
+		double normalizer = logSumExp(weightedScore);
+		for (int k = 0; k < numIsos; k++) {
+			rs[n][k] = exp(weightedScore[k] - normalizer);
+		}
+	}
+}
+
+void HP_Model::updateBetas(int subInd) {
+	vector<double> &betas = betasBySub[subInd];
+	vector<vector<double> > &rs = rsBySub[subInd];
+	for (int k = 0; k < numIsos; k++) {
+		betas[k] = alpha[k];
+		for (int n = 0; n < numReadsBySub[subInd]; n++) {
+			betas[k] += rs[n][k];
+		}
+	}
+}
+
+
+void HP_Model::updateAlpha() {
+	for (int iter = 0; iter < MAX_NEWTON_ITER; iter++) {
+		vector<double> oldAlpha = alpha;
+		// compute ss
+		for (int k = 0; k < numIsos; k++) {
+			ss[k] = 0.0;
+		}
+		for (int m = 0; m < numSubs; m++) {
+			double sumBetas = 0.0;
+			for (int k = 0; k < numIsos; k++) {
+				sumBetas += betasBySub[m][k];
+			}
+			double digammaSumBetas = digamma(sumBetas);
+			for (int k = 0; k < numIsos; k++) {
+				ss[k] += digamma(betasBySub[m][k])-digammaSumBetas;
+			}
+		}
+		// compute q
+		int fault;
+		for (int k = 0; k < numIsos; k++) {
+			q[k] = -numSubs*trigamma(alpha[k], &fault);
+		}
+		//compute g
+		double sumAlpha = 0.0;
+		for (int k = 0; k < numIsos; k++) {
+			sumAlpha += alpha[k];
+		}
+		double digammaSumAlpha = digamma(sumAlpha);
+		for (int k = 0; k < numIsos; k++) {
+			g[k] = numSubs*(digammaSumAlpha-digamma(alpha[k]))+ss[k];
+		}
+		//compute b
+		double z = numSubs*trigamma(sumAlpha, &fault);
+		double b = 0.0;
+		for (int k = 0; k < numIsos; k++) {
+			b += g[k]/q[k];
+		}
+		double c = 0.0;
+		for (int k = 0; k < numIsos; k++) {
+			c += 1/q[k];
+		}
+		b /= 1/z+c;
+		//finally update alpha
+		for (int k = 0; k < numIsos; k++) {
+			alpha[k] -= (g[k]-b)/q[k];
+			if (alpha[k] < 1e-15) {
+				cerr << "Warning: alpha too small." << endl;
+				alpha[k] = 1e-10;
+			}
+		}
+		if (allClose(oldAlpha, alpha, 1e-10)) {
+			cerr << "Newtons converge in " << iter << " iterations." << endl;
+			break;
+		}
+	}
+}
+
+void HP_Model::performBVI() {
+	isFinished = false;
+	for (int currOutIter = 0; currOutIter < param.numOutIters; currOutIter++) {
+		vector<double> oldAlpha = alpha;
+		cerr << "Outer iter " << currOutIter << "..." << endl;
+		for (int subInd = 0; subInd < numSubs; subInd++) {
+			// init betas for this sub
+			for (int isoInd = 0; isoInd < numIsos; isoInd++) {
+				betasBySub[subInd][isoInd] = alpha[isoInd] + numReadsBySub[subInd]/(double) numIsos;
+			}
+			for (int currInIter = 0; currInIter < param.numInIters; currInIter++) {
+				vector<double> oldBetas = betasBySub[subInd];
+				updateRs(subInd);
+				updateBetas(subInd);
+				if (allClose(betasBySub[subInd], oldBetas, 1e-15)) {
+					cerr << "Subject " << (subInd+1) << " converged in " << (currInIter+1) << " iterations."<< endl;
+					break;
+				}
+			}
+		}
+		save();
+		if (numSubs == 1) {
+			cerr << "Only one subject. Do not update alpha." << endl;
+			break;
+		}
+		updateAlpha();
+		if (allClose(oldAlpha, alpha, 1e-6)) {
+			cerr << "Alpha converge in " << currOutIter << " iterations." << endl;
+			break;
+		}
+	}
+	isFinished = true;
+	save();
+	cout << "Finished succussfull." << endl;
+}
+
+void HP_Model::save() {
+	ofstream of((param.outputDir+"/"+gene.ID).c_str());
+	if (of) {
+		of << "# gene" << endl << gene.ID << endl;
+		of << "# numIsos" << endl << numIsos << endl;
+		of << "# isoforms" << endl;
+		for (list<HP_MRNA>::iterator ii = gene.mRNAs.begin();
+			 ii != gene.mRNAs.end(); ii++) {
+			of << ii->ID << " ";
+		}
+		of << endl;
+		of << "# isFinished" << endl << isFinished << endl;
+		of << "# numSubs" << endl << numSubs << endl;
+		of << "# alpha" << endl;
+		for (int k = 0; k < numIsos; k++ ){
+			of << alpha[k] << " ";
+		}
+		of << endl;
+		of << "# betas" << endl;
+		for (int m = 0; m < numSubs; m++) {
+			for (int k = 0; k < numIsos; k++) {
+				of << betasBySub[m][k] << " ";
+			}
+			of << endl;
+		}
+		of << "# rs" << endl;
+		for (int m = 0; m < numSubs; m++) {
+			for (int n = 0; n < numReadsBySub[m]; n++) {
+				for (int k = 0; k < numIsos; k++) {
+					of << rsBySub[m][n][k] << ",";
+				}
+				of << ";";
+			}
+			of << endl;
+		}
+		of << "# done";
+		of.close();
+	}
 }
 
 
