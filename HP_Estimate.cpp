@@ -1,0 +1,134 @@
+#include "HP_Read.h"
+#include "HP_GFF.h"
+#include "HP_Gene.h"
+#include "sam.h"
+#include <iostream>
+#include <list>
+#include <map>
+#include <string>
+#include <cmath>
+#include <cstdlib>
+#include <sstream>
+
+using namespace std;
+
+static int fetch_func(const bam1_t *b, void *data) {
+    map<string, list<HP_Read> > &readsByName = *(map<string, list<HP_Read> >*)data;
+	
+	HP_Read read;
+	read.pos = b->core.pos+1; // change from 0 based to 1 based
+	read.name = bam1_qname(b);
+	read.len = b->core.l_qseq;
+	read.cigar = vector<int32_t>(b->core.n_cigar);
+	uint32_t *cigar = bam1_cigar(b);
+	for (int i = 0; i < b->core.n_cigar; i++ ) {
+		read.cigar[i] = cigar[i];
+	}
+	if (readsByName.find(read.name) == readsByName.end()) {
+		readsByName[read.name] = list<HP_Read>();
+	}
+	readsByName[read.name].push_back(read);
+	
+    return 0;
+}
+
+int main(int argc, char **argv) {
+	if (argc < 2) {
+		cerr << "Usage: " << argv[0] << " <GFF> <bam 1> <bam 2> ..." << endl;
+	}
+	HP_Gff gff = HP_Gff(string(argv[1]));
+	
+	list<int> insertedLengths;
+	for (int i = 2; i < argc; i++) {
+		samfile_t *in = samopen(argv[i], "rb", 0);
+		if (in == 0) {
+			cerr << "Error: cannot read BAM file \"" << argv[i] << "\"." << endl;
+			exit(1);
+		}
+		
+		int count = 0;
+		for (list<HP_Gene>::iterator ii = gff.genes.begin();
+			 ii != gff.genes.end(); ii++, count++) {
+			if (count % 10000 == 0) {
+				cerr << "finished " << count << " genes." << endl;
+			}
+			map<string, list<HP_Read> >readsByName;
+			int beg, end;
+			ii->getBounds(beg, end);
+			stringstream sstm;
+			sstm << ii->seqid << ":" << beg << "-" << end;
+			int newBeg, newEnd, ref;
+			bam_parse_region(in->header, sstm.str().c_str(),
+							 &ref, &newBeg, &newEnd);
+			//cout << ref << " " << newBeg << " " << newEnd << endl;
+			if (ref < 0) {
+				//cerr << "Error: region \"" << sstm.str() << "\" is invalid." << endl;
+				continue;
+			}
+			bam_index_t *idx;
+			bam_plbuf_t *buf;
+			idx = bam_index_load(argv[i]); // load BAM index
+			if (idx == 0) {
+				cerr << "Error: BAM indexing file is not available." << endl;
+				exit(1);
+			}
+			bam_fetch(in->x.bam, idx, ref, newBeg, newEnd, &readsByName, fetch_func);
+			bam_index_destroy(idx);
+			
+			for (list<HP_MRNA>::iterator ik = ii->mRNAs.begin();
+				 ik != ii->mRNAs.end(); ik++) {
+				for (map<string, list<HP_Read> >::iterator ij = readsByName.begin();
+					 ij != readsByName.end(); ij++) {
+					if (ij->second.size() == 2) {
+						list<HP_Read>::iterator read1 = ij->second.begin();
+						list<HP_Read>::iterator read2 = ij->second.begin();
+						read2++;
+						if (read1->doesAlignTo(*ik) &&
+							read2->doesAlignTo(*ik)) {
+							int iLen = HP_GetInsertedLength(*read1, *read2, *ik);
+							insertedLengths.push_back(iLen);
+						}
+					}
+				}
+			}
+		}
+		samclose(in);
+		
+		
+			
+			/*
+			int newBeg, newEnd, ref;
+			bam_parse_region(in->header, sstm.str().c_str(),
+							 &ref, &newBeg, &newEnd);
+			
+		}
+		
+		
+		
+		sampileup(in, -1, pileup_func, &readsByName);
+
+		for (map<string, list<HP_Read> >::iterator ii = readsByName.begin();
+			 ii != readsByName.end(); ii++) {
+			if (ii->second.size() == 2) {
+				//int iLen = computeInsertedLength(ii->second);
+				//insertedLengths.push_back(iLen);
+			}
+		}
+			 */
+	}
+	double sum = 0;
+	for (list<int>::iterator ii = insertedLengths.begin();
+		 ii != insertedLengths.end(); ii++) {
+		sum += *ii;
+	}
+	double mean = sum / insertedLengths.size();
+	double var = 0;
+	for (list<int>::iterator ii = insertedLengths.begin();
+		 ii != insertedLengths.end(); ii++) {
+		var += ((*ii) - mean)*((*ii) - mean);
+	}
+	double stderivation = sqrt(var/insertedLengths.size());
+	cout << "Inserted length" << endl;
+	cout << "Mean: " << mean << " std: " << stderivation << endl;
+	return 0;
+}
