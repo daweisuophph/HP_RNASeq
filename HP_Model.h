@@ -8,31 +8,11 @@
 #include <map>
 #include "HP_Read.h"
 #include "HP_Gene.h"
+#include "HP_Param.h"
 
 #define MAX_NEWTON_ITER 1000
 
 using namespace std;
-
-class HP_Param {
-public:
-	bool isSingleEnd; // single end or pair end
-	double meanInsertedLen; // mean of inserted Length
-	double stdInsertedLen; //  standard deviation of inserted length
-	int minRead; // minimum number of reads	
-	int readLen; // read length
-	int overhangLen; // Length of overhang constraints imposed on junctions.
-	string geneID; // Gene ID
-	string gff; //GFF filename
-	list<string> bams;
-	string outputDir; //output directory
-	int numOutIters; // number of interations to update alpha
-	int numInIters; // number of interations to update hidden variables
-	
-	HP_Param();
-	string toString() const;
-};
-
-ostream& operator<< (ostream& os, HP_Param& param);
 
 class HP_Model {
 private:

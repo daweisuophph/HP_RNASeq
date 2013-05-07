@@ -93,27 +93,25 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 		errorFlag = true;
 		cerr << "Number of gene IDs does not match number of GFF files" << endl;
 	}
-	// check required options
-	if (!errorFlag) {
-		if (geneIDs.empty()) {
-			errorFlag = true;
-			cerr << "Error: Gene ID is required" << endl;
-		}
-		if (param.readLen == 0) {
-			errorFlag = true;
-			cerr << "Error: read length is required" << endl;
-		}
-		if (param.bams.empty()) {
-			errorFlag = true;
-			cerr << "Error: BAM filenames are required" << endl;
-		}
-		if (param.outputDir.empty()) {
-			errorFlag = true;
-			cerr << "Error: Output directory is required" << endl;
-		}
+
+	if (geneIDs.empty()) {
+		errorFlag = true;
+		cerr << "Error: Gene ID is required" << endl;
+	}
+	if (param.readLen == 0) {
+		errorFlag = true;
+		cerr << "Error: read length is required" << endl;
+	}
+	if (param.bams.empty()) {
+		errorFlag = true;
+		cerr << "Error: BAM filenames are required" << endl;
+	}
+	if (param.outputDir.empty()) {
+		errorFlag = true;
+		cerr << "Error: Output directory is required" << endl;
 	}
 	// print usage
-	else {
+	if (errorFlag) {
 		cerr << "Usage: " << argv[0] << " <options>" << endl;
 		cerr << "Options:" << endl;
 		cerr << "--gene-ids <gene ID1>,<gene ID2>,..." << endl;
@@ -125,11 +123,10 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 		cerr << "--overhang-len <overhang length>" << endl;	
 		cerr << "--paired-end <mean> <std>" << endl;	
 		cerr << "--in-iter <# of inner iters>" << endl;	
-		cerr << "--out-iter <# of outer iters>" << endl;	
-	}
-
-	if (errorFlag)
+		cerr << "--out-iter <# of outer iters>" << endl;
+		
 		exit(1);
+	}
 	
 	list<HP_Param> params;
 	for (list<string>::iterator ii = geneIDs.begin(), ij = gffs.begin();
