@@ -4,7 +4,7 @@
 #include <string>
 #include <list>
 #include <vector>
-
+#include <boost/cstdint.hpp>
 #include "HP_Gene.h"
 
 using namespace std;

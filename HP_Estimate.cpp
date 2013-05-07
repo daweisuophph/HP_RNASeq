@@ -1,5 +1,5 @@
 #include "HP_Read.h"
-#include "HP_GFF.h"
+#include "HP_Gff.h"
 #include "HP_Gene.h"
 #include "sam.h"
 #include <iostream>
