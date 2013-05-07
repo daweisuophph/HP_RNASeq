@@ -35,6 +35,7 @@ static int fetch_func(const bam1_t *b, void *data) {
 int main(int argc, char **argv) {
 	if (argc < 2) {
 		cerr << "Usage: " << argv[0] << " <GFF> <bam 1> <bam 2> ..." << endl;
+		exit(1);
 	}
 	HP_Gff gff = HP_Gff(string(argv[1]));
 	
@@ -93,28 +94,6 @@ int main(int argc, char **argv) {
 			}
 		}
 		samclose(in);
-		
-		
-			
-			/*
-			int newBeg, newEnd, ref;
-			bam_parse_region(in->header, sstm.str().c_str(),
-							 &ref, &newBeg, &newEnd);
-			
-		}
-		
-		
-		
-		sampileup(in, -1, pileup_func, &readsByName);
-
-		for (map<string, list<HP_Read> >::iterator ii = readsByName.begin();
-			 ii != readsByName.end(); ii++) {
-			if (ii->second.size() == 2) {
-				//int iLen = computeInsertedLength(ii->second);
-				//insertedLengths.push_back(iLen);
-			}
-		}
-			 */
 	}
 	double sum = 0;
 	for (list<int>::iterator ii = insertedLengths.begin();

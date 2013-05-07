@@ -15,6 +15,7 @@ HP_Param::HP_Param() {
 	outputDir = string();
 	numInIters = 5;
 	numOutIters = 5000;
+	outputBinary = true;
 }
 
 // to string
@@ -38,5 +39,10 @@ string HP_Param::toString() const {
 		<< " and std " << stdInsertedLen << endl;
 	sstm << "Inner iteration limit: " << numInIters << endl;
 	sstm << "Outer iteration limit: " << numOutIters << endl;
+	if (outputBinary) {
+		sstm << "Output in binary format." << endl;
+	} else {
+		sstm << "Output in human readable format." << endl;
+	}
 	return sstm.str();
 }

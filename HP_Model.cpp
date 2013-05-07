@@ -1,6 +1,5 @@
 #include <cstdlib>
 #include <sstream>
-#include <fstream>
 #include <limits>
 #include <cmath>
 #include "HP_Model.h"
@@ -17,6 +16,11 @@ using namespace boost::math;
 HP_Model::HP_Model(const HP_Param &param) {
 	this->param = param;
 	readsByName = vector<map<string, list<HP_Read> > >(param.bams.size());
+	outputBuffer = new char[MAX_BUFFER_SIZE];
+}
+
+HP_Model::~HP_Model() {
+	delete outputBuffer;
 }
 
 // load gene from indexed GFF file
@@ -395,6 +399,9 @@ void HP_Model::updateAlpha() {
 void HP_Model::performBVI() {
 	isFinished = false;
 	for (int currOutIter = 0; currOutIter < param.numOutIters; currOutIter++) {
+		if (currOutIter) {
+			save(); // save intermediate steps
+		}
 		vector<double> oldAlpha = alpha;
 		cerr << "Outer iter " << currOutIter << "..." << endl;
 		for (int subInd = 0; subInd < numSubs; subInd++) {
@@ -412,7 +419,6 @@ void HP_Model::performBVI() {
 				}
 			}
 		}
-		save();
 		if (numSubs == 1) {
 			cerr << "Only one subject. Do not update alpha." << endl;
 			break;
@@ -424,46 +430,178 @@ void HP_Model::performBVI() {
 		}
 	}
 	isFinished = true;
-	save();
-	cout << "Finished succussfull." << endl;
+	cerr << "Finished succussfull." << endl;
 }
+
+void HP_Model::saveHumanReadable(ofstream &of) {
+	of << "# isFinished" << endl << isFinished << endl;
+	of << "# gene" << endl << gene.ID << endl;
+	of << "# numIsos" << endl << numIsos << endl;
+	of << "# isoforms" << endl;
+	for (list<HP_MRNA>::iterator ii = gene.mRNAs.begin();
+		 ii != gene.mRNAs.end(); ii++) {
+		of << ii->ID << " ";
+	}
+	of << endl;
+	of << "# numSubs" << endl << numSubs << endl;
+	of <<"# numReadsBySub" << endl;
+	for (int m = 0; m < numSubs; m++ ){
+		of << numReadsBySub[m] << " ";
+	}
+	of <<endl;
+	of << "# alpha" << endl;
+	for (int k = 0; k < numIsos; k++ ){
+		of << alpha[k] << " ";
+	}
+	of << endl;
+	of << "# betas" << endl;
+	for (int m = 0; m < numSubs; m++) {
+		for (int k = 0; k < numIsos; k++) {
+			of << betasBySub[m][k] << " ";
+		}
+		of << endl;
+	}
+	of << "# rs" << endl;
+	for (int m = 0; m < numSubs; m++) {
+		for (int n = 0; n < numReadsBySub[m]; n++) {
+			for (int k = 0; k < numIsos; k++) {
+				of << rsBySub[m][n][k] << ",";
+			}
+			of << ";";
+		}
+		of << endl;
+	}
+	of << "log score" << endl;
+	for (int m = 0; m < numSubs; m++) {
+		for (int n = 0; n < numReadsBySub[m]; n++) {
+			for (int k = 0; k < numIsos; k++) {
+				of << logScore[m][n][k] << ",";
+			}
+			of << ";";
+		}
+		of << endl;
+	}
+	of << "# done";
+}
+
+
+void HP_Model::saveBinary(ofstream &of) {
+	int currSize = 0;
+	// isFinished
+	if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
+		of.write(outputBuffer, currSize);
+		currSize = 0;
+	}
+	*(bool *) (outputBuffer+currSize) = isFinished;
+	currSize += sizeof(bool);
+	
+	// numOfIsos
+	if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
+		of.write(outputBuffer, currSize);
+		currSize = 0;
+	}
+	*(int *) (outputBuffer+currSize) = numIsos;
+	currSize += sizeof(int);
+	
+	// numOfSubs
+	if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
+		of.write(outputBuffer, currSize);
+		currSize = 0;
+	}
+	*(int *) (outputBuffer+currSize) = numSubs;
+	currSize += sizeof(int);
+	
+	/*
+	// numReads
+	for (int m = 0; m < numSubs; m++) {
+		if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
+			of.write(outputBuffer, currSize);
+			currSize = 0;
+		}
+		*(int *) (outputBuffer+currSize) = numReadsBySub[m];
+		currSize += sizeof(int);
+	}
+	 */
+	/*
+	// gene ID
+	if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
+		of.write(outputBuffer, currSize);
+		currSize = 0;
+	}
+	*(int *) (outputBuffer+currSize) = gene.ID.size();;
+	currSize += sizeof(int);
+	for (int i = 0; i < gene.ID.size(); i++) {
+		if (currSize + 1 >= MAX_BUFFER_SIZE) {
+			of.write(outputBuffer, currSize);
+			currSize = 0;
+		}
+		outputBuffer[currSize] = gene.ID[i];
+		currSize++;
+	}
+	// alpha
+	for (int k = 0; k < numIsos; k++) {
+		if (currSize + sizeof(double) >= MAX_BUFFER_SIZE) {
+			of.write(outputBuffer, currSize);
+			currSize = 0;
+		}
+		*(double *) (outputBuffer+currSize) = alpha[k];
+		currSize += sizeof(double);
+	}
+	 */
+	
+	// betas
+	for (int m = 0; m < numSubs; m++) {
+		for (int k = 0; k < numIsos; k++) {
+			if (currSize + sizeof(double) >= MAX_BUFFER_SIZE) {
+				of.write(outputBuffer, currSize);
+				currSize = 0;
+			}
+			*(double *) (outputBuffer+currSize) = betasBySub[m][k];
+			currSize += sizeof(double);
+		}
+	}
+	/*
+	// rs
+	for (int m = 0; m < numSubs; m++) {
+		for (int n = 0; n < numReadsBySub[m]; n++) {
+			for (int k = 0; k < numIsos; k++) {
+				if (currSize + sizeof(double) >= MAX_BUFFER_SIZE) {
+					of.write(outputBuffer, currSize);
+					currSize = 0;
+				}
+				*(double *) (outputBuffer+currSize) = rsBySub[m][n][k];
+				currSize += sizeof(double);
+			}
+		}
+	}
+	// log score
+	for (int m = 0; m < numSubs; m++) {
+		for (int n = 0; n < numReadsBySub[m]; n++) {
+			for (int k = 0; k < numIsos; k++) {
+				if (currSize + sizeof(double) >= MAX_BUFFER_SIZE) {
+					of.write(outputBuffer, currSize);
+					currSize = 0;
+				}
+				*(double *) (outputBuffer+currSize) = logScore[m][n][k];
+				currSize += sizeof(double);
+			}
+		}
+	}
+	 */
+	if (currSize) {
+		of.write(outputBuffer, currSize);
+	}
+}
+
 
 void HP_Model::save() {
 	ofstream of((param.outputDir+"/"+gene.ID).c_str());
 	if (of) {
-		of << "# gene" << endl << gene.ID << endl;
-		of << "# numIsos" << endl << numIsos << endl;
-		of << "# isoforms" << endl;
-		for (list<HP_MRNA>::iterator ii = gene.mRNAs.begin();
-			 ii != gene.mRNAs.end(); ii++) {
-			of << ii->ID << " ";
+		if (param.outputBinary) {
+			saveBinary(of);
+		} else {
+			saveHumanReadable(of);
 		}
-		of << endl;
-		of << "# isFinished" << endl << isFinished << endl;
-		of << "# numSubs" << endl << numSubs << endl;
-		of << "# alpha" << endl;
-		for (int k = 0; k < numIsos; k++ ){
-			of << alpha[k] << " ";
-		}
-		of << endl;
-		of << "# betas" << endl;
-		for (int m = 0; m < numSubs; m++) {
-			for (int k = 0; k < numIsos; k++) {
-				of << betasBySub[m][k] << " ";
-			}
-			of << endl;
-		}
-		of << "# rs" << endl;
-		for (int m = 0; m < numSubs; m++) {
-			for (int n = 0; n < numReadsBySub[m]; n++) {
-				for (int k = 0; k < numIsos; k++) {
-					of << rsBySub[m][n][k] << ",";
-				}
-				of << ";";
-			}
-			of << endl;
-		}
-		of << "# done";
 		of.close();
 	}
 }

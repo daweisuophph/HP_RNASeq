@@ -5,13 +5,14 @@
 #include <list>
 #include <vector>
 #include <iostream>
+#include <fstream>
 #include <map>
 #include "HP_Read.h"
 #include "HP_Gene.h"
 #include "HP_Param.h"
 
 #define MAX_NEWTON_ITER 1000
-
+#define MAX_BUFFER_SIZE 4096
 using namespace std;
 
 class HP_Model {
@@ -49,6 +50,7 @@ private:
 	//isoform->gradient
 	vector<double> g;
 	bool isFinished;
+	char *outputBuffer;
 	
 
 	void loadGene();
@@ -59,14 +61,17 @@ private:
 	void updateRs(int subInd);
 	void updateBetas(int subInd);
 	void updateAlpha();
-	void save();
+	void saveHumanReadable(ofstream &of);
+	void saveBinary(ofstream &of);
 
 public:
 	HP_Gene gene;
 	void addRead(const HP_Read &read, int index);
 	HP_Model(const HP_Param &param);
+	~HP_Model();
 	bool preprocessing();
 	//perform Bayesian variational inference
 	void performBVI();
+	void save();
 };
 #endif

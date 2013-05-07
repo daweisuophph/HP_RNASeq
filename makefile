@@ -12,7 +12,7 @@ INCLUDE=-I/Users/pengh/Documents/boost/include
 LIB=-L/Users/pengh/Documents/boost/lib -Lsamtools -Lsamtools/bcftools
 OPTIONS=-lboost_system -lboost_filesystem -lbam -lbcf  -lcurses  -lz
 
-all: run indexGFF estimate split
+all: run indexGFF estimate split kl
 
 run: HP_Model.o HP_RunTask.o HP_Gene.o HP_Gff.o HP_Read.o HP_Param.o asa121.o
 	g++ -O2 -o run HP_Model.o HP_RunTask.o HP_Gene.o HP_Gff.o HP_Read.o HP_Param.o asa121.o ${BOOST_LIB} ${SAMTOOLS_LIB} ${BOOST_OPTION} ${SAMTOOLS_OPTION}
@@ -25,6 +25,9 @@ split: HP_SplitTasks.o HP_Param.o HP_Gff.o
 
 estimate: HP_Estimate.o HP_Read.o HP_Gene.o HP_Gff.o
 	g++ -O2 -o estimate HP_Estimate.o HP_Read.o HP_Gene.o HP_Gff.o ${SAMTOOLS_LIB} ${SAMTOOLS_OPTION}
+
+kl: HP_ComputeKL.o HP_Gff.o HP_Gene.o
+	g++ -O2 -o kl HP_ComputeKL.o HP_Gff.o HP_Gene.o ${BOOST_LIB} ${BOOST_OPTION}
 
 HP_Model.o: HP_Model.cpp HP_Model.h
 	g++ -O2 -c -o HP_Model.o HP_Model.cpp ${SAMTOOLS_INCLUDE} ${BOOST_INCLUDE}
@@ -52,6 +55,9 @@ HP_Estimate.o: HP_Estimate.cpp
 
 HP_SplitTasks.o: HP_SplitTasks.cpp
 	g++ -O2 -c -o HP_SplitTasks.o HP_SplitTasks.cpp ${BOOST_INCLUDE}
+
+HP_ComputeKL.o: HP_ComputeKL.cpp
+	g++ -O2 -c -o HP_ComputeKL.o HP_ComputeKL.cpp ${BOOST_INCLUDE}
 
 asa121.o: asa121.h asa121.cpp
 	g++ -O2 -c -o asa121.o asa121.cpp

@@ -84,6 +84,8 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 				errorFlag = true;
 				cerr << "Error: invalid number of outer iterations \"" << argv[i] << "\"." << endl;
 			}
+		} else if (strcmp(argv[i], "--human-readable")==0) {
+			param.outputBinary = false;
 		} else {
 			cerr << "Error: cannot recognize option " << i << " : \"" << argv[i] << "\"." << endl;
 			errorFlag = true;
@@ -124,6 +126,7 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 		cerr << "--paired-end <mean> <std>" << endl;	
 		cerr << "--in-iter <# of inner iters>" << endl;	
 		cerr << "--out-iter <# of outer iters>" << endl;
+		cerr << "--human-readable" << endl;
 		
 		exit(1);
 	}
@@ -148,6 +151,7 @@ int main(int argc, char **argv) {
 		HP_Model model(*ii);
 		if (model.preprocessing()) {
 			model.performBVI();
+			model.save();
 		}
 	}
 	

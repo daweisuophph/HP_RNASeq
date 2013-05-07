@@ -19,6 +19,7 @@ public:
 	string outputDir; //output directory
 	int numOutIters; // number of interations to update alpha
 	int numInIters; // number of interations to update hidden variables
+	bool outputBinary; //whether to output in binary format
 	
 	HP_Param();
 	string toString() const;

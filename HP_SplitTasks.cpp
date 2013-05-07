@@ -1,5 +1,5 @@
 /*
- Run the analysis for one gene
+ Split tasks
  */
 
 #include <iostream>
@@ -98,6 +98,8 @@ Temp_Param parseArg(int argc, char **argv)  {
 				errorFlag = true;
 				cerr << "Error: invalid number of outer iterations \"" << argv[i] << "\"." << endl;
 			}
+		} else if (strcmp(argv[i], "--human-readable")==0) {
+			param.outputBinary = false;
 		} else {
 			cerr << "Error: cannot recognize option " << i << " : \"" << argv[i] << "\"." << endl;
 			errorFlag = true;
@@ -223,6 +225,9 @@ int main(int argc, char **argv) {
 			}
 			script << " --in-iter " << tmpParam.param.numInIters;
 			script << " --out-iter " << tmpParam.param.numOutIters;
+			if (!tmpParam.param.outputBinary) {
+				script << " --human-readable";
+			}
 			script.close();
 		}
 		taskID++;
