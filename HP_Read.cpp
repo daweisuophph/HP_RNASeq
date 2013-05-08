@@ -1,5 +1,9 @@
+/*
+ Author: Hao Peng (pengh@purdue.edu)
+ Date: May 8, 2013
+ Version: 1.0v
+ */
 #include <sstream>
-//#include <iostream>
 #include "HP_Read.h"
 
 using namespace std;

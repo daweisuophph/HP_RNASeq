@@ -64,4 +64,4 @@ asa121.o: asa121.h asa121.cpp
 
 clean:
 	rm -f *.o
-	rm -f run indexGFF estimate split
+	rm -f run indexGFF estimate split kl

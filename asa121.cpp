@@ -1,3 +1,8 @@
+/*
+ Author: Hao Peng (pengh@purdue.edu)
+ Date: May 8, 2013
+ Version: 1.0v
+ */
 # include <stdlib.h>
 # include <stdio.h>
 # include <time.h>
