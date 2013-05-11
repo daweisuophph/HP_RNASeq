@@ -108,8 +108,12 @@ void HP_Model::computeLogScore() {
 		isoLengths[i] = ii->getLength();
 	}
 	
-	normal_distribution<double> pInsertLen(param.meanInsertedLen,
-								   param.stdInsertedLen);
+	normal_distribution<double> pInsertLen;
+	
+	if (!param.isSingleEnd) {
+		pInsertLen = normal_distribution<double>(param.meanInsertedLen,
+												 param.stdInsertedLen);
+	}
 	
 	numSubs = alignmentsBySub.size();
 	numReadsBySub = vector<int>(numSubs);
