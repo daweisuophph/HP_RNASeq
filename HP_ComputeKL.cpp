@@ -34,26 +34,16 @@ void tranverseDir(fs::path dir, list<HP_Gene> &genes) {
 	}
 }
 
-bool loadBetas(ifstream &ifs, vector<vector<double> > &betas) {
-	bool isFinished;
-	int numOfIsos, numOfSubs;
-	int numOfReads;
+bool loadBetasBinary(ifstream &ifs, vector<vector<double> > &betas) {
+	bool isFinished = false;
+	int numOfIsos = 0, numOfSubs = 0;
 	ifs.read((char *) &isFinished, sizeof(bool));
-	if (*(char*)&isFinished == '#') {
-		cerr << "Warning: human readable file not supported" << endl;
-		return false;
-	}
 	if (!ifs) return false;
 	ifs.read((char *) &numOfIsos, sizeof(int));
 	if (!ifs) return isFinished;
 	ifs.read((char *) &numOfSubs, sizeof(int));
 	if (!ifs) return isFinished;
-	/*
-	for (int i = 0; i < numOfReads; i++ ) {
-		ifs.read((char *) &numOfReads, sizeof(int));
-		if (!ifs) return isFinished;
-	}
-	 */
+
 	double *buf = new double[numOfSubs*numOfIsos];
 	ifs.read((char *) buf, sizeof(double)*numOfSubs*numOfIsos);
 	if (!ifs.good()) {
@@ -67,9 +57,56 @@ bool loadBetas(ifstream &ifs, vector<vector<double> > &betas) {
 			betas[i][j] = buf[i*numOfIsos+j];
 		}
 	}
-	delete buf;	
-	
+	delete buf;
+
 	return isFinished;
+}
+
+bool loadBetasHuman(ifstream &ifs, vector<vector<double> > &betas) {
+	bool isFinished = false;
+	int numOfIsos = 0, numOfSubs = 0;
+   int num;
+   bool flag = false;
+
+   char *buf = new char[1000];
+   while (ifs.good()) {
+      ifs.getline(buf, 1000);
+      if (strcmp(buf, "# isFinished") == 0) {
+         ifs >> num;
+         if (num == 1) isFinished = true;
+      } else if (strcmp(buf, "# numIsos") == 0) {
+         if (!ifs.good()) return false;
+         ifs >> numOfIsos;
+      } else if (strcmp(buf, "# numSubs") == 0) {
+         if (!ifs.good()) return false;
+         ifs >> numOfSubs;
+      } else if (strcmp(buf, "# betas") == 0) {
+         betas = vector<vector<double> >(numOfSubs, vector<double>(numOfIsos));
+         for (int i = 0; i < numOfSubs; i++) {
+            for (int j = 0; j < numOfIsos; j++) {
+               if (!ifs.good()) return false;
+               ifs >> betas[i][j];
+            }
+         }
+         flag = true;
+         break;
+      }
+   }
+
+   if (!flag) return false;
+
+	return isFinished;
+}
+
+bool loadBetas(ifstream &ifs, vector<vector<double> > &betas) {
+   char c;
+	ifs.read((char *) &c, sizeof(char));
+   ifs.putback(c);
+   if (c == '#') {
+      return loadBetasHuman(ifs, betas);
+   } else {
+      return loadBetasBinary(ifs, betas);
+   }
 }
 
 double kl(vector<vector<double> > &b1, vector<vector<double> > &b2) {
@@ -89,9 +126,17 @@ double kl(vector<vector<double> > &b1, vector<vector<double> > &b2) {
 			a2 += b2[i][k];
 		}
 		// kl(q(b1)||q(b2)) + kl(q(b2)||q(b1))
+		//cerr << i << ": " << endl;
+		//	cerr << "kl " << kl << endl;
+		//cerr << "a1 : " << a1 << " a2 : " << a2 << endl;
 		for (int k = 0; k < b1[i].size(); k++) {
+			//cerr << "b1 : " << b1[i][k] << " b2 : " << b2[i][k] << endl;
 			kl += (b1[i][k]-b2[i][k])*(digamma(b1[i][k])-digamma(a1));
 			kl += (b2[i][k]-b1[i][k])*(digamma(b2[i][k])-digamma(a2));
+			//cerr << (b1[i][k]-b2[i][k])*(digamma(b1[i][k])-digamma(a1)) << " ";
+			//cerr << (b2[i][k]-b1[i][k])*(digamma(b2[i][k])-digamma(a2));
+			//cerr << endl;
+			//cerr << "kl " << kl << endl;
 		}
 	}
 	return kl;
@@ -118,9 +163,11 @@ int main(int argc, char **argv) {
 		ifstream ifs1(path1.c_str());
 		ifstream ifs2(path2.c_str());
 		vector<vector<double> > b1, b2;
-		if (ifs1) {
+      bool loaded1 = false, loaded2 = false;
+      if (ifs1) {
 			bool isFinished = loadBetas(ifs1, b1);
 			if (isFinished) {
+            loaded1 = true;
 				cout << " 1";
 			} else {
 				cout << " 2";
@@ -131,6 +178,7 @@ int main(int argc, char **argv) {
 		if (ifs2) {
 			bool isFinished  = loadBetas(ifs2, b2);
 			if (isFinished) {
+            loaded2 = true;
 				cout << " 1";
 			} else {
 				cout << " 2";
@@ -138,7 +186,7 @@ int main(int argc, char **argv) {
 		} else {
 			cout << " 0";
 		}
-		if (ifs1 && ifs2) {
+		if (loaded1 && loaded2) {
 			cout << " " << kl(b1, b2);
 		} else {
 			cout << " -1";

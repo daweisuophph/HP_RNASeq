@@ -11,7 +11,8 @@ HP_Param::HP_Param() {
 	isSingleEnd = true;
 	meanInsertedLen = 0;
 	stdInsertedLen = 0;
-	minRead = 1;
+   bfgsUpdate = true;
+	//minRead = 1;
 	readLen = 0;
 	geneID = string();
 	gff = string();
@@ -34,7 +35,9 @@ string HP_Param::toString() const {
 		sstm << (*ii) << " ";
 	sstm << endl;
 	sstm << "Output directory: " << outputDir << endl;
-	sstm << "Minimum number of reads: " << minRead << endl;
+   if (readCountFile.size()) sstm << "Read count file: " << readCountFile << endl;
+   sstm << "Update method: " << (bfgsUpdate? "BFGS": "Netwon's") << endl;
+	//sstm << "Minimum number of reads: " << minRead << endl;
 	sstm << "Read length: " << readLen << endl;
 	sstm << "Overhang length: " << overhangLen << endl;
 	if (isSingleEnd)

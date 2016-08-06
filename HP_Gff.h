@@ -1,7 +1,7 @@
 /*
  Author: Hao Peng (pengh@purdue.edu)
- Date: May 8, 2013
- Version: 1.0v
+ Date: June 22, 2016
+ Version: 1.1v
  */
 
 #ifndef _HP_GFF
@@ -27,6 +27,6 @@ private:
 public:
 	list <HP_Gene> genes;
 	HP_Gff(string gffFile);
-	map<string, list<HP_Gene> > getGenesBySeqid();
+	void getGenesBySeqid(map<string, list<HP_Gene> > &genesBySeqid);
 };
 #endif

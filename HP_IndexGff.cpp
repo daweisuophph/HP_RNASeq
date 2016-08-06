@@ -1,7 +1,7 @@
 /*
  Author: Hao Peng (pengh@purdue.edu)
- Date: May 8, 2013
- Version: 1.0v
+ Date: June 22, 2016
+ Version: 1.1v
  */
 #include <string>
 #include <cstdlib>
@@ -52,7 +52,8 @@ int main (int argc, char **argv) {
 		cout << (*ii).toString() << endl;
 	}
 	*/
-	map<string, list<HP_Gene> > genesBySeqid = gff.getGenesBySeqid();
+	map<string, list<HP_Gene> > genesBySeqid;
+	gff.getGenesBySeqid(genesBySeqid);
 	cerr << "Output indexed GFF files" << endl;
 	for (map<string, list<HP_Gene> >::iterator ii = genesBySeqid.begin();
 		 ii != genesBySeqid.end(); ii++) {

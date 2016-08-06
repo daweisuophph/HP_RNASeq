@@ -1,7 +1,7 @@
 /*
  Author: Hao Peng (pengh@purdue.edu)
- Date: May 8, 2013
- Version: 1.0v
+ Date: June 22, 2016
+ Version: 1.1v
  */
 #include <cstdlib>
 #include <sstream>
@@ -11,6 +11,7 @@
 #include "HP_Gff.h"
 #include <boost/math/distributions/normal.hpp>
 #include <boost/math/special_functions/digamma.hpp>
+#include <boost/math/special_functions/gamma.hpp>
 #include <boost/filesystem.hpp>
 #include "sam.h"
 #include "asa121.h"
@@ -37,6 +38,7 @@ void HP_Model::loadGene() {
 		exit(1);
 	}
 	gene = *gff.genes.begin();
+	numIsos = gene.mRNAs.size();
 }
 
 struct _HP_TMPSTRUCT {
@@ -100,21 +102,46 @@ void HP_Model::loadReads() {
 	}
 }
 
+// load the total read count of each subject
+void HP_Model::loadReadCount() {
+	ifstream ifs(param.readCountFile.c_str());
+	if (ifs.is_open()) {
+		while (ifs.good()) {
+			int count;
+			ifs >> count;
+			totalNumReadsBySub.push_back(count);
+		}
+	} else {
+		if (param.readCountFile.size()) {
+			cerr << "Warning: file " << param.readCountFile << " not openned" << endl;
+		}
+		for (int i = 0; i < numSubs; i++) {
+			totalNumReadsBySub.push_back(1);
+		}
+	}
+}
+
 void HP_Model::computeLogScore() {
-	vector<int> isoLengths(gene.mRNAs.size());
+
+	vector<int> isoLengths(numIsos);
 	int i = 0;
 	for (list<HP_MRNA>::iterator ii = gene.mRNAs.begin();
 		 ii != gene.mRNAs.end(); ii++, i++){
 		isoLengths[i] = ii->getLength();
 	}
 	
+	numReadsPossible.resize(numIsos);
+	for (int isoInd = 0; isoInd < numReadsPossible.size(); isoInd++) {
+		numReadsPossible[isoInd] = isoLengths[isoInd] - param.readLen + 1; 
+	}
+
 	normal_distribution<double> pInsertLen;
 	
 	if (!param.isSingleEnd) {
 		pInsertLen = normal_distribution<double>(param.meanInsertedLen,
 												 param.stdInsertedLen);
 	}
-	
+
 	numSubs = alignmentsBySub.size();
 	numReadsBySub = vector<int>(numSubs);
 	logScore = vector<vector<vector<double> > >(numSubs);
@@ -127,7 +154,6 @@ void HP_Model::computeLogScore() {
 		list<vector<bool> >::iterator iRead1 = iSub1->begin();
 		list<vector<int> >::iterator iRead2 = iSub2->begin();
 		for (int readInd = 0; readInd < numReadsBySub[subInd]; readInd++, iRead1++, iRead2++) {
-			numIsos = iRead1->size();
 			logScore[subInd][readInd] = vector<double>(numIsos);
 			for (int isoInd = 0; isoInd < numIsos; isoInd++) {
 				if ((*iRead1)[isoInd]) {
@@ -135,8 +161,7 @@ void HP_Model::computeLogScore() {
 					if (!param.isSingleEnd) {
 						logProbFrags = log(pdf(pInsertLen, (*iRead2)[isoInd]));
 					}
-					int numReadsPossible = isoLengths[isoInd]-param.readLen+1;
-					logScore[subInd][readInd][isoInd] = log(1.0) - log(numReadsPossible) + logProbFrags;
+					logScore[subInd][readInd][isoInd] = log(1.0) - log(numReadsPossible[isoInd]) + logProbFrags;
 					
 				} else {
 					logScore[subInd][readInd][isoInd] = -numeric_limits<double>::max();
@@ -182,12 +207,15 @@ bool HP_Model::preprocessing() {
 	loadReads();
 	cerr << "Computing alignments..." << endl;
 	computeAlignments();
+   /*
 	if (alignmentsBySub.size() == 0) {
 		cerr << "Warning: numbers of aligned reads for all subjects are below the threshold: " << param.minRead << ". skippping ..." << endl;
 		return false;
-	}
+	}*/
 	cerr << "Computing log score..." << endl;
 	computeLogScore();
+	cerr << "Loading read count..." << endl;
+	loadReadCount();
 	cerr << "Initializing variables..." << endl;
 	initVariables();
 	// create directory to store output
@@ -203,12 +231,7 @@ bool HP_Model::preprocessing() {
 }
 
 void HP_Model::addRead(const HP_Read &read, int ind) {
-	if (readsByName[ind].find(read.name) == readsByName[ind].end()) {
-		list<HP_Read> &reads = readsByName[ind][read.name] = list<HP_Read>();
-		reads.push_back(read);
-	} else {
-		readsByName[ind][read.name].push_back(read);
-	}
+	readsByName[ind][read.name].push_back(read);
 }
 
 
@@ -279,14 +302,26 @@ void HP_Model::computeAlignments() {
 				insertedLens.push_back(insertedLen);
 			}
 		}
-		cerr << "Number of effective reads for subject " << (ind+1) << ": "
-			<< alignments.size() << endl;
-		if (alignments.size() >= param.minRead) {
-			alignmentsBySub.push_back(alignments);
-			insertedLensBySub.push_back(insertedLens);
-		}
+		alignmentsBySub.push_back(alignments);
+		insertedLensBySub.push_back(insertedLens);
 	}
-	cerr << "Number of effective subjects: " << alignmentsBySub.size() << endl;
+
+	/*
+	cerr << "Debug:" << endl;	
+	cerr << "num of isoforms" <<  numIsos << endl;
+	for (list<list<vector<bool> > >::iterator jj = alignmentsBySub.begin();
+			jj != alignmentsBySub.end(); jj++) {
+		for (int j = 0; j < numIsos; j++) {
+			int total = 0; 
+			for (list<vector<bool> >::iterator ii = jj->begin();
+				   ii != jj->end();	ii++){
+				if ((*ii)[j]) total += 1;
+			}
+			cerr << total << " ";
+		}
+		cerr << endl;
+	}
+	*/
 }
 
 static inline bool allClose(const vector<double> &a, const vector<double> &b, double thres) {
@@ -347,8 +382,118 @@ void HP_Model::updateBetas(int subInd) {
 	}
 }
 
+lbfgsfloatval_t HP_Model::_evaluate(
+		void *instance,
+		const lbfgsfloatval_t *x,
+		lbfgsfloatval_t *g,
+		const int n,
+		const lbfgsfloatval_t step) {
+	return reinterpret_cast<HP_Model*>(instance)->evaluate(x, g, n, step);
+}
+
+lbfgsfloatval_t HP_Model::evaluate(
+		const lbfgsfloatval_t *logAlpha,
+		lbfgsfloatval_t *g,
+		const int numIsos,
+		const lbfgsfloatval_t step
+		)
+{
+	lbfgsfloatval_t fx = 0.0;
+	vector<double> alpha(numIsos);
+	double sumAlphas = 0.0;
+	double sumLogGammaAlphas = 0.0;
+	for (int k = 0; k < numIsos; k++) {
+		alpha[k] = exp(logAlpha[k]);
+		sumAlphas += alpha[k];
+		sumLogGammaAlphas += lgamma(alpha[k]);
+	}
+	double digammaSumAlphas = digamma(sumAlphas);
+
+	// compute fx
+	fx = numSubs * (sumLogGammaAlphas - lgamma(sumAlphas));
+
+	for (int m = 0; m < numSubs; m++) {
+		double sumBetas = 0.0;
+		for (int k = 0; k < numIsos; k++) {
+			sumBetas += betasBySub[m][k];
+		}
+		double digammaSumBetas = digamma(sumBetas);
+
+		for (int k = 0; k < numIsos; k++) {
+			fx += (alpha[k] - 1) * (digammaSumBetas - digamma(betasBySub[m][k]));
+		}
+	}
+
+	// compute ss
+	for (int k = 0; k < numIsos; k++) {
+		ss[k] = 0.0;
+	}
+	for (int m = 0; m < numSubs; m++) {
+		double sumBetas = 0.0;
+		for (int k = 0; k < numIsos; k++) {
+			sumBetas += betasBySub[m][k];
+		}
+		double digammaSumBetas = digamma(sumBetas);
+		for (int k = 0; k < numIsos; k++) {
+			ss[k] += digamma(betasBySub[m][k])-digammaSumBetas;
+		}
+	}
+
+	// compute g
+	for (int k = 0; k < numIsos; k++) {
+		g[k] = (numSubs * (digamma(alpha[k]) - digammaSumAlphas) - ss[k]) * alpha[k];
+	}
+
+	return fx;
+}
+
+int HP_Model::_progress(
+		void *instance,
+		const lbfgsfloatval_t *x,
+		const lbfgsfloatval_t *g,
+		const lbfgsfloatval_t fx,
+		const lbfgsfloatval_t xnorm,
+		const lbfgsfloatval_t gnorm,
+		const lbfgsfloatval_t step,
+		int n,
+		int k,
+		int ls) {
+	return reinterpret_cast<HP_Model*>(instance)->progress(x, g, fx, xnorm, gnorm, step, n, k, ls);
+}
+
+int HP_Model::progress(
+		const lbfgsfloatval_t *x,
+		const lbfgsfloatval_t *g,
+		const lbfgsfloatval_t fx,
+		const lbfgsfloatval_t xnorm,
+		const lbfgsfloatval_t gnorm,
+		const lbfgsfloatval_t step,
+		int n,
+		int k,
+		int ls
+		)
+{
+   /*
+	cerr << "Iteration " << k << ": ";
+	cerr << "fx = " << fx <<  " x =";
+	
+	for (int i = 0; i < n; i++) {
+		cerr << " " << x[i];
+	}
+	cerr << endl;
+   */
+	return 0;
+}
 
 void HP_Model::updateAlpha() {
+   if (param.bfgsUpdate) {
+      updateAlphaBFGS();
+   } else {
+      updateAlphaNewton();
+   }
+}
+
+void HP_Model::updateAlphaNewton() {
 	for (int iter = 0; iter < MAX_NEWTON_ITER; iter++) {
 		vector<double> oldAlpha = alpha;
 		// compute ss
@@ -405,6 +550,74 @@ void HP_Model::updateAlpha() {
 	}
 }
 
+void HP_Model::updateAlphaBFGS() {
+	lbfgsfloatval_t fx;
+	lbfgsfloatval_t *logAlpha = lbfgs_malloc(numIsos);
+
+	for (int k = 0; k < numIsos; k++) {
+		logAlpha[k] = log(alpha[k]);
+	}
+
+	int ret =  lbfgs(numIsos, logAlpha, &fx, _evaluate, _progress, this, NULL);
+	
+	for (int k = 0; k < numIsos; k++) {
+		alpha[k] = exp(logAlpha[k]);
+	}
+
+	lbfgs_free(logAlpha);
+}
+
+
+double HP_Model::computeLogVBLBBySub(int m) {
+	double logVBLB = 0.0;
+	double sumAlphas = 0.0;
+	for (int k = 0; k < numIsos; k++)
+		sumAlphas += alpha[k];
+	double logGammaSumAlphas = lgamma(sumAlphas);
+	double sumLogGammaAlphas = 0.0;
+	for (int k = 0; k < numIsos; k++)
+		sumLogGammaAlphas += lgamma(alpha[k]);
+
+	logVBLB += logGammaSumAlphas - sumLogGammaAlphas;
+	double sumBetas = 0.0;
+	for (int k = 0; k < numIsos; k++)
+		sumBetas += betasBySub[m][k];
+	double digammaSumBetas = digamma(sumBetas);
+	for (int k = 0; k < numIsos; k++)
+		logVBLB += (alpha[k] - 1.0) * 
+			(digamma(betasBySub[m][k]) - digammaSumBetas);
+	
+	double logGammaSumBeta = lgamma(sumBetas);
+	logVBLB -= logGammaSumBeta;
+	for (int k = 0;k < numIsos; k++) 
+		logVBLB += lgamma(betasBySub[m][k]) - (betasBySub[m][k] - 1.0) *
+			(digamma(betasBySub[m][k]) - digammaSumBetas);
+
+	for (int n = 0; n < numReadsBySub[m]; n++) {
+		for (int k = 0; k < numIsos; k++) {
+			if (rsBySub[m][n][k] >= 1e-50) {
+				logVBLB += rsBySub[m][n][k] *
+					( (digamma(betasBySub[m][k]) - digammaSumBetas)
+					  + logScore[m][n][k]
+					  - log(rsBySub[m][n][k]));
+			}
+		}
+	}
+
+	return logVBLB;
+}
+
+double HP_Model::computeLogVBLB() {
+	double logVBLB = 0.0;
+	for (int m = 0; m < numSubs; m++) {
+		logVBLB += computeLogVBLBBySub(m);
+	}
+
+	return logVBLB;
+}
+
+
+
 void HP_Model::performBVI() {
 	isFinished = false;
 	for (int currOutIter = 0; currOutIter < param.numOutIters; currOutIter++) {
@@ -428,6 +641,7 @@ void HP_Model::performBVI() {
 				}
 			}
 		}
+		cerr << "VBLB: " << computeLogVBLB() << endl;
 		if (numSubs == 1) {
 			cerr << "Only one subject. Do not update alpha." << endl;
 			break;
@@ -453,6 +667,11 @@ void HP_Model::saveHumanReadable(ofstream &of) {
 	}
 	of << endl;
 	of << "# numSubs" << endl << numSubs << endl;
+	of << "# totalNumReadsBySub" << endl;
+	for (int m = 0; m < numSubs; m++ ){
+		of << totalNumReadsBySub[m] << " ";
+	}
+	of << endl;
 	of <<"# numReadsBySub" << endl;
 	for (int m = 0; m < numSubs; m++ ){
 		of << numReadsBySub[m] << " ";
@@ -480,13 +699,49 @@ void HP_Model::saveHumanReadable(ofstream &of) {
 		}
 		of << endl;
 	}
-	of << "log score" << endl;
+	of << "# log score" << endl;
 	for (int m = 0; m < numSubs; m++) {
 		for (int n = 0; n < numReadsBySub[m]; n++) {
 			for (int k = 0; k < numIsos; k++) {
 				of << logScore[m][n][k] << ",";
 			}
 			of << ";";
+		}
+		of << endl;
+	}
+	of << "# done";
+}
+
+
+void HP_Model::saveFPKM(ofstream &of) {
+	of << "# isFinished" << endl << isFinished << endl;
+	of << "# gene" << endl << gene.ID << endl;
+	of << "# numIsos" << endl << numIsos << endl;
+	of << "# isoforms" << endl;
+	for (list<HP_MRNA>::iterator ii = gene.mRNAs.begin();
+		 ii != gene.mRNAs.end(); ii++) {
+		of << ii->ID << " ";
+	}
+	of << endl;
+	of << "# numSubs" << endl << numSubs << endl;
+	of << "# totalNumReadsBySub" << endl;
+	for (int m = 0; m < numSubs; m++ ){
+		of << totalNumReadsBySub[m] << " ";
+	}
+	of << endl;
+	of << "# numReadsBySub" << endl;
+	for (int m = 0; m < numSubs; m++ ){
+		of << numReadsBySub[m] << " ";
+	}
+	of <<endl;
+	of << "# FPKM" << endl;
+	for (int m = 0; m < numSubs; m++) {
+		double betaSum = 0.0;
+		for (int k = 0; k < numIsos; k++) {
+			betaSum += betasBySub[m][k];
+		}
+		for (int k = 0; k < numIsos; k++) {
+			of << betasBySub[m][k] / betaSum * numReadsBySub[m] / numReadsPossible[k] / totalNumReadsBySub[m] * 1.0e9 << " ";
 		}
 		of << endl;
 	}
@@ -613,6 +868,12 @@ void HP_Model::save() {
 		}
 		of.close();
 	}
+   if (param.readCountFile.size() > 0) {
+      ofstream ofFPKM((param.outputDir+"/"+gene.ID+".fpkm").c_str());
+      if (ofFPKM) {
+         saveFPKM(ofFPKM);
+      }
+   }
 }
 
 

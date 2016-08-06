@@ -1,7 +1,7 @@
 /*
  Author: Hao Peng (pengh@purdue.edu)
- Date: May 8, 2013
- Version: 1.0v
+ Date: June 22, 2016
+ Version: 1.1v
  */
 #include "HP_Gff.h"
 #include <iostream>
@@ -167,14 +167,12 @@ void HP_Gff::readRecordV3(char **fields) {
 	delete r;
 }
 
-map<string, list<HP_Gene> > HP_Gff::getGenesBySeqid() {
-	map<string, list<HP_Gene> > genesBySeqid;
+void HP_Gff::getGenesBySeqid(map<string, list<HP_Gene> > &genesBySeqid) {
 	for (list<HP_Gene>::iterator ig = genes.begin(); ig != genes.end(); ig++) {
 		if (genesBySeqid.find(ig->seqid) == genesBySeqid.end()) {
 			genesBySeqid[ig->seqid] = list<HP_Gene>();
 		}
 		genesBySeqid[ig->seqid].push_back(*ig);
 	}
-	return genesBySeqid;
 }
 

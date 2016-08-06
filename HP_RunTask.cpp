@@ -56,11 +56,8 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 				cerr << "Error: cannot write to directory \"" << argv[i] << "\"." << endl;
 			}
 		} else if (strcmp(argv[i], "--min-read")==0 && i+1<argc) {
-			param.minRead = atoi(argv[++i]);
-			if (param.minRead == 0) {
-				errorFlag = true;
-				cerr << "Error: invalid minimum number of read \"" << argv[i] << "\"." << endl;
-			}
+         cerr << "Warning: --min-read not supported yet" << endl;
+         ++i; //ignore this option (not supported yet)
 		} else if (strcmp(argv[i], "--read-len")==0 && i+1<argc) {
 			param.readLen = atoi(argv[++i]);
 			if (param.readLen == 0) { 
@@ -89,8 +86,12 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 				errorFlag = true;
 				cerr << "Error: invalid number of outer iterations \"" << argv[i] << "\"." << endl;
 			}
+		} else if (strcmp(argv[i], "--read-count")==0 && i+1<argc) {
+			param.readCountFile = string(argv[++i]);
 		} else if (strcmp(argv[i], "--human-readable")==0) {
 			param.outputBinary = false;
+		} else if (strcmp(argv[i], "--newton-update")==0) {
+			param.bfgsUpdate = false;
 		} else {
 			cerr << "Error: cannot recognize option " << i << " : \"" << argv[i] << "\"." << endl;
 			errorFlag = true;
@@ -131,7 +132,9 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 		cerr << "--paired-end <mean> <std>" << endl;	
 		cerr << "--in-iter <# of inner iters>" << endl;	
 		cerr << "--out-iter <# of outer iters>" << endl;
+		cerr << "--read-count <filename of the read count file>" << endl;
 		cerr << "--human-readable" << endl;
+		cerr << "--newton-update" << endl;
 		
 		exit(1);
 	}
