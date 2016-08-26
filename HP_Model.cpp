@@ -207,11 +207,12 @@ bool HP_Model::preprocessing() {
 	loadReads();
 	cerr << "Computing alignments..." << endl;
 	computeAlignments();
-   /*
+	/*
 	if (alignmentsBySub.size() == 0) {
 		cerr << "Warning: numbers of aligned reads for all subjects are below the threshold: " << param.minRead << ". skippping ..." << endl;
 		return false;
-	}*/
+	}
+	*/
 	cerr << "Computing log score..." << endl;
 	computeLogScore();
 	cerr << "Loading read count..." << endl;
@@ -301,6 +302,10 @@ void HP_Model::computeAlignments() {
 				alignments.push_back(alignment);
 				insertedLens.push_back(insertedLen);
 			}
+		}
+		if (alignments.size() < param.minRead) {
+			cerr << "num of reads aligned is less than the limit" << endl;
+			exit(1);
 		}
 		alignmentsBySub.push_back(alignments);
 		insertedLensBySub.push_back(insertedLens);
@@ -802,6 +807,7 @@ void HP_Model::saveBinary(ofstream &of) {
 		outputBuffer[currSize] = gene.ID[i];
 		currSize++;
 	}
+	 */
 	// alpha
 	for (int k = 0; k < numIsos; k++) {
 		if (currSize + sizeof(double) >= MAX_BUFFER_SIZE) {
@@ -811,7 +817,6 @@ void HP_Model::saveBinary(ofstream &of) {
 		*(double *) (outputBuffer+currSize) = alpha[k];
 		currSize += sizeof(double);
 	}
-	 */
 	
 	// betas
 	for (int m = 0; m < numSubs; m++) {

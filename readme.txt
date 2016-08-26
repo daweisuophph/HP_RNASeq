@@ -1,6 +1,6 @@
 Author: Hao Peng (pengh@purdue.edu)
-Date: May 8, 2013
-Version: 1.0v
+Date: Aug 26, 2016
+Version: 1.1v
 
 Prerequisites:
 1. boost v1.53.0+ 

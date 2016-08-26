@@ -1,7 +1,8 @@
-BOOST_HOME=/Users/pengh/Documents/boost/
+#BOOST_HOME=
 BOOST_INCLUDE=-I${BOOST_HOME}/include
 BOOST_LIB=-L${BOOST_HOME}/lib
-BOOST_OPTION=${BOOST_HOME}/lib/libboost_system.a ${BOOST_HOME}/lib/libboost_filesystem.a
+#BOOST_OPTION=${BOOST_HOME}/lib/libboost_system.a ${BOOST_HOME}/lib/libboost_filesystem.a
+BOOST_OPTION=-lboost_system -lboost_filesystem
 
 SAMTOOLS_HOME=third_party/samtools
 SAMTOOLS_INCLUDE=-I${SAMTOOLS_HOME}

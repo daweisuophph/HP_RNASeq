@@ -56,8 +56,13 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 				cerr << "Error: cannot write to directory \"" << argv[i] << "\"." << endl;
 			}
 		} else if (strcmp(argv[i], "--min-read")==0 && i+1<argc) {
-         cerr << "Warning: --min-read not supported yet" << endl;
-         ++i; //ignore this option (not supported yet)
+			param.minRead = atoi(argv[++i]);
+			if (param.minRead < 0) {
+				errorFlag = true;
+				cerr << "Error: min # of reads must be non-negative" << endl;
+			}
+         //cerr << "Warning: --min-read not supported yet" << endl;
+         //++i; //ignore this option (not supported yet)
 		} else if (strcmp(argv[i], "--read-len")==0 && i+1<argc) {
 			param.readLen = atoi(argv[++i]);
 			if (param.readLen == 0) { 

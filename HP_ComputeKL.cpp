@@ -34,7 +34,9 @@ void tranverseDir(fs::path dir, list<HP_Gene> &genes) {
 	}
 }
 
-bool loadBetasBinary(ifstream &ifs, vector<vector<double> > &betas) {
+bool loadBinary(ifstream &ifs, 
+      vector<double> &alpha, 
+      vector<vector<double> > &betas) {
 	bool isFinished = false;
 	int numOfIsos = 0, numOfSubs = 0;
 	ifs.read((char *) &isFinished, sizeof(bool));
@@ -44,17 +46,25 @@ bool loadBetasBinary(ifstream &ifs, vector<vector<double> > &betas) {
 	ifs.read((char *) &numOfSubs, sizeof(int));
 	if (!ifs) return isFinished;
 
-	double *buf = new double[numOfSubs*numOfIsos];
-	ifs.read((char *) buf, sizeof(double)*numOfSubs*numOfIsos);
+   int size = numOfIsos + numOfSubs * numOfIsos;
+
+	double *buf = new double[size];
+	ifs.read((char *) buf, sizeof(double)*size);
 	if (!ifs.good()) {
 		delete buf;
 		return isFinished;
 	}
+
+   alpha = vector<double> (numOfIsos);
+   for (int i = 0; i < numOfIsos; i++) {
+      alpha[i] = buf[i];
+   }
+
 	betas = vector<vector<double> >(numOfSubs);
 	for (int i = 0; i < numOfSubs; i++) {
 		betas[i] = vector<double>(numOfIsos);
 		for (int j = 0 ; j < numOfIsos; j++) {
-			betas[i][j] = buf[i*numOfIsos+j];
+			betas[i][j] = buf[i*numOfIsos+j + numOfIsos];
 		}
 	}
 	delete buf;
@@ -62,7 +72,9 @@ bool loadBetasBinary(ifstream &ifs, vector<vector<double> > &betas) {
 	return isFinished;
 }
 
-bool loadBetasHuman(ifstream &ifs, vector<vector<double> > &betas) {
+bool loadHuman(ifstream &ifs, 
+      vector<double> &alpha,
+      vector<vector<double> > &betas) {
 	bool isFinished = false;
 	int numOfIsos = 0, numOfSubs = 0;
    int num;
@@ -80,7 +92,13 @@ bool loadBetasHuman(ifstream &ifs, vector<vector<double> > &betas) {
       } else if (strcmp(buf, "# numSubs") == 0) {
          if (!ifs.good()) return false;
          ifs >> numOfSubs;
-      } else if (strcmp(buf, "# betas") == 0) {
+      } else if (strcmp(buf, "# alpha") == 0) {
+			alpha = vector<double>(numOfIsos);
+			for (int i = 0; i < numOfIsos; i++) {
+				if (!ifs.good()) return false;
+				ifs >> alpha[i];
+			}
+		} else if (strcmp(buf, "# betas") == 0) {
          betas = vector<vector<double> >(numOfSubs, vector<double>(numOfIsos));
          for (int i = 0; i < numOfSubs; i++) {
             for (int j = 0; j < numOfIsos; j++) {
@@ -98,18 +116,20 @@ bool loadBetasHuman(ifstream &ifs, vector<vector<double> > &betas) {
 	return isFinished;
 }
 
-bool loadBetas(ifstream &ifs, vector<vector<double> > &betas) {
+bool loadModel(ifstream &ifs, 
+      vector<double> &alpha,
+      vector<vector<double> > &betas) {
    char c;
 	ifs.read((char *) &c, sizeof(char));
    ifs.putback(c);
    if (c == '#') {
-      return loadBetasHuman(ifs, betas);
+      return loadHuman(ifs, alpha, betas);
    } else {
-      return loadBetasBinary(ifs, betas);
+      return loadBinary(ifs, alpha, betas);
    }
 }
 
-double kl(vector<vector<double> > &b1, vector<vector<double> > &b2) {
+double betaKL(vector<vector<double> > &b1, vector<vector<double> > &b2) {
 	if (b1.size() != b2.size()) {
 		return -1;
 	}
@@ -126,30 +146,62 @@ double kl(vector<vector<double> > &b1, vector<vector<double> > &b2) {
 			a2 += b2[i][k];
 		}
 		// kl(q(b1)||q(b2)) + kl(q(b2)||q(b1))
-		//cerr << i << ": " << endl;
-		//	cerr << "kl " << kl << endl;
-		//cerr << "a1 : " << a1 << " a2 : " << a2 << endl;
 		for (int k = 0; k < b1[i].size(); k++) {
-			//cerr << "b1 : " << b1[i][k] << " b2 : " << b2[i][k] << endl;
 			kl += (b1[i][k]-b2[i][k])*(digamma(b1[i][k])-digamma(a1));
 			kl += (b2[i][k]-b1[i][k])*(digamma(b2[i][k])-digamma(a2));
-			//cerr << (b1[i][k]-b2[i][k])*(digamma(b1[i][k])-digamma(a1)) << " ";
-			//cerr << (b2[i][k]-b1[i][k])*(digamma(b2[i][k])-digamma(a2));
-			//cerr << endl;
-			//cerr << "kl " << kl << endl;
 		}
+	}
+	return kl;
+}
+
+double alphaKL(vector<double> &a1, vector<double> &a2) {
+	if (a1.size() != a2.size()) {
+		return -1;
+	}
+	double kl = 0;
+	double s1 = 0;
+	double s2 = 0;
+
+	for (int k = 0; k < a1.size(); k++) {
+		s1 += a1[k];
+		s2 += a2[k];
+	}
+	// kl(q(a1)||q(a2)) + kl(q(a2)||q(a1))
+	for (int k = 0; k < a1.size(); k++) {
+		kl += (a1[k]/s1) * log((a1[k]/s1) / (a2[k]/s2));
+		kl += (a2[k]/s2) * log((a2[k]/s2) / (a1[k]/s1));
 	}
 	return kl;
 }
 
 
 int main(int argc, char **argv) {
-	if (argc != 4) {
-		cerr << "Usage: " << argv[0] << " <indexed GFF> <group 1> <group 2>" << endl;
+	if (argc != 4 && argc != 5) {
+		cerr << "Usage: " << argv[0] << " [--beta] <indexed GFF> <group 1> <group 2>" << endl;
+      return 1;
 	}
+
+   bool computeBetaKL = false;
+   char *indexDir, *outputDir1, *outputDir2;
+
+   if (argc == 5) {
+      if (strcmp(argv[1], "--beta") != 0) {
+         cerr << "Unknown argument: " <<  argv[1] << endl;
+         cerr << "Usage: " << argv[0] << " [--beta] <indexed GFF> <group 1> <group 2>" << endl;
+         return 1;
+      }
+      computeBetaKL = true;
+      indexDir = argv[2];
+      outputDir1 = argv[3];
+      outputDir2 = argv[4];
+   } else {
+      indexDir = argv[1];
+      outputDir1 = argv[2];
+      outputDir2 = argv[3];
+   }
 	
 	fs::path dir(fs::initial_path<fs::path>());
-	dir = fs::system_complete(argv[1]);
+	dir = fs::system_complete(indexDir);
 	
 	list<HP_Gene> genes;
 	tranverseDir(dir, genes);
@@ -158,14 +210,15 @@ int main(int argc, char **argv) {
 	for (list<HP_Gene>::iterator ii = genes.begin();
 		 ii != genes.end(); ii++) {
 		cout << ii->seqid << " " << ii->ID << " ";
-		string path1 = string(argv[2]) + "/" + ii->seqid + "/" + ii->ID;
-		string path2 = string(argv[3]) + "/" + ii->seqid + "/" + ii->ID;
+		string path1 = string(outputDir1) + "/" + ii->seqid + "/" + ii->ID;
+		string path2 = string(outputDir2) + "/" + ii->seqid + "/" + ii->ID;
 		ifstream ifs1(path1.c_str());
 		ifstream ifs2(path2.c_str());
-		vector<vector<double> > b1, b2;
+      vector<double> a1, a2; //alphas
+		vector<vector<double> > b1, b2; //betas
       bool loaded1 = false, loaded2 = false;
       if (ifs1) {
-			bool isFinished = loadBetas(ifs1, b1);
+			bool isFinished = loadModel(ifs1, a1, b1);
 			if (isFinished) {
             loaded1 = true;
 				cout << " 1";
@@ -176,7 +229,7 @@ int main(int argc, char **argv) {
 			cout << " 0";
 		}
 		if (ifs2) {
-			bool isFinished  = loadBetas(ifs2, b2);
+			bool isFinished  = loadModel(ifs2, a2, b2);
 			if (isFinished) {
             loaded2 = true;
 				cout << " 1";
@@ -187,7 +240,11 @@ int main(int argc, char **argv) {
 			cout << " 0";
 		}
 		if (loaded1 && loaded2) {
-			cout << " " << kl(b1, b2);
+         if (computeBetaKL) {
+            cout << " " << betaKL(b1, b2);
+         } else {
+            cout << " " << alphaKL(a1, a2);
+         }
 		} else {
 			cout << " -1";
 		}

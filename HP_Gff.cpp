@@ -21,10 +21,16 @@ HP_Gff::HP_Gff(string gffFile) {
 	char *line = new char[MAX_LINE_SIZE];
 	ifs.getline(line, MAX_LINE_SIZE);
 	if (ifs.good()) {
-		if (strcmp(line, "##gff-version 3") == 0) {
+		char *dummy = new char[MAX_LINE_SIZE];
+		int versionNum = 0;
+		if (sscanf(line, "%s %d", dummy, &versionNum) != EOF && versionNum == 3){
+		//if (strcmp(line, "##gff-version 3") == 0 || strcmp(line, "##gff-version\t3") == 0) {
+			delete dummy;
 			readGFFV3(ifs);
 		} else {
 			cerr << "Error: the version \"" << line << "\" is not supported" << endl;
+			delete dummy;
+			delete line;
 			exit(1);
 		}
 	}
@@ -95,6 +101,17 @@ void HP_Gff::readRecordV3(char **fields) {
 	if (strcmp(fields[2], "gene") == 0) {
 		r = new HP_Gene();
 	} else if (strcmp(fields[2], "transcript") == 0 ||
+				strcmp(fields[2], "aberrant_processed_transcript") == 0 ||
+				strcmp(fields[2], "nc_primary_transcript") == 0 ||
+				strcmp(fields[2], "NMD_transcript_variant") == 0 ||
+				strcmp(fields[2], "processed_transcript") == 0 ||
+				strcmp(fields[2], "pseudogenic_transcript") == 0 ||
+				strcmp(fields[2], "RNA") == 0 ||
+				strcmp(fields[2], "rRNA") == 0 ||
+				strcmp(fields[2], "snoRNA") == 0 ||
+				strcmp(fields[2], "snRNA") == 0 ||
+				strcmp(fields[2], "miRNA") == 0 ||
+				strcmp(fields[2], "lincRNA") == 0 ||
 			   strcmp(fields[2], "mRNA") == 0) {
 		r = new HP_MRNA();
 	} else if (strcmp(fields[2], "exon") == 0) {
@@ -104,6 +121,7 @@ void HP_Gff::readRecordV3(char **fields) {
 	} else {
 		return;
 	}
+	/*
 	if (fields[0][0] != 'c' ||
 		fields[0][1] != 'h' ||
 		fields[0][2] != 'r') {
@@ -111,6 +129,8 @@ void HP_Gff::readRecordV3(char **fields) {
 	} else {
 		r->seqid = string(fields[0]);
 	}
+	*/
+	r->seqid = string(fields[0]);
 	r->source = string(fields[1]);
 	r->type = string(fields[2]);
 	r->start = atoi(fields[3]);
