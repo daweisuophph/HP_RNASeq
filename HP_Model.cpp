@@ -174,7 +174,7 @@ void HP_Model::computeLogScore() {
 void HP_Model::initVariables() {
 	alpha = vector<double>(numIsos);
 	for (int i = 0; i < numIsos; i++) {
-		alpha[i] = 1.0;
+		alpha[i] = param.initAlpha;
 	}
 	betasBySub = vector<vector<double> >(numSubs);
 	for (int i = 0; i < numSubs; i++) {
