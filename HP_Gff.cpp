@@ -54,7 +54,7 @@ void HP_Gff::readGFFV3(ifstream &ifs) {
 			int i = 0;
 			fields[i] = strtok(line, "\t");
 			while ((fields[++i] = strtok(NULL, "\t")) && i < 9);
-			if (i != 9 && fields[9] == 0) {
+			if (i != 9 || fields[9] != 0) {
 				cerr << "Error: invalid number of fields (should be 9) at line " << lineNumber << "." << endl;
 				exit(1);
 			}
