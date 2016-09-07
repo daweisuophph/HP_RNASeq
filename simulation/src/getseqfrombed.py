@@ -53,7 +53,9 @@ filledseq='A';
 for i in range(len(sys.argv)):
   if i<len(sys.argv)-1:
     if sys.argv[i]=='-s' or sys.argv[i]=='--seed':
-      random.seed(int(sys.argv[i+1]))
+      rnd_seed = int(sys.argv[i+1])
+      random.seed(rnd_seed)
+      print>>sys.stderr, ('Random seed: %d'%(rnd_seed))
     if sys.argv[i]=='-b' or sys.argv[i]=='--seqerror':
       bline=0;
       tbweight=0;

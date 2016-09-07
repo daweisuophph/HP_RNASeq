@@ -96,7 +96,9 @@ stranded=False;
 for i in range(len(sys.argv)):
   if i<len(sys.argv)-1:
     if sys.argv[i]=='-s' or sys.argv[i]=='--seed':
-      random.seed(int(sys.argv[i+1]))
+      rnd_seed = int(sys.argv[i+1])
+      random.seed(rnd_seed)
+      print('Random seed: ' + str(rnd_seed),file=sys.stderr)
     if sys.argv[i]=='-e' or sys.argv[i]=='--expression':
       # parse the annoatation file, and sum up the weights
       nline=0;
