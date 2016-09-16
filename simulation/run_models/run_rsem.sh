@@ -1,7 +1,7 @@
 #!/bin/bash
 
 RSEM_ARGS="-paired-end --no-qualities --no-bam-output --bowtie2 -p 1"
-REFERENCE=/scratch/lustreC/y/yang365/DEIsoM/reference_ensembl_org_pub_grch37_release-84_fasta_homo_sapiens/rsem-ref-builtByTranscript/ensembl
+REFERENCE="reference"
 READ_FOLDER=reads
 OUTPUT_MATRIX=isoform.matrix
 OUTPUT_FILE=isoform.result
