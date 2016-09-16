@@ -1,3 +1,5 @@
+#!/bin/bash
+
 DEISOM=HP_RNASeq/run
 READ_DIR=bams
 GFF_DIR=indexed
