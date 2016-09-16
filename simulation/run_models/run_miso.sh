@@ -1,4 +1,5 @@
-DIR=/scratch/hansen/p/pengh/reads_repeated_exp/
+#!/bin/bash
+
 CONDITIONS=( "N" "T" )
 MISO_ARGS="--read-len 100 --paired-end 200 20"
 OUTPUT_DIR=output
