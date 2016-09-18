@@ -24,6 +24,8 @@ Please check demo folder for an example run of our model on a small data.
 In simulation folder, we keep the codes for generating synthetic data in our paper.
 
 For evaluation of our method, we can use 
-kl [indexed GFF] [output of group 1] [output of group 2]  for general evaluations (either paired or unpaired between groups)
+kl [indexed GFF] [output of group 1] [output of group 2]  
+for general evaluations (either paired or unpaired between groups)
 or
-kl --beta [indexed GFF] [output of group 1] [output of group 2] for paired evalutions only
+kl --beta [indexed GFF] [output of group 1] [output of group 2] 
+for paired evalutions only
