@@ -15,6 +15,8 @@
 #include <boost/filesystem.hpp>
 #include "sam.h"
 #include "asa121.h"
+# define M_PI 3.14159265358979323846
+
 
 using namespace std;
 using namespace boost::math;
@@ -132,7 +134,7 @@ void HP_Model::computeLogScore() {
 	
 	numReadsPossible.resize(numIsos);
 	for (int isoInd = 0; isoInd < numReadsPossible.size(); isoInd++) {
-		numReadsPossible[isoInd] = isoLengths[isoInd] - param.readLen + 1; 
+		numReadsPossible[isoInd] = max(0, isoLengths[isoInd] - param.readLen) + 1; 
 	}
 
 	normal_distribution<double> pInsertLen;
@@ -159,7 +161,9 @@ void HP_Model::computeLogScore() {
 				if ((*iRead1)[isoInd]) {
 					double logProbFrags = 0;
 					if (!param.isSingleEnd) {
-						logProbFrags = log(pdf(pInsertLen, (*iRead2)[isoInd]));
+						//logProbFrags = log(pdf(pInsertLen, (*iRead2)[isoInd]));
+                  double tmp = (*iRead2)[isoInd] - (double) param.meanInsertedLen;
+						logProbFrags = -0.5*log(2*M_PI)-log((double)param.stdInsertedLen)-0.5*tmp*tmp/param.stdInsertedLen/param.stdInsertedLen;
 					}
 					logScore[subInd][readInd][isoInd] = log(1.0) - log(numReadsPossible[isoInd]) + logProbFrags;
 					
@@ -174,7 +178,7 @@ void HP_Model::computeLogScore() {
 void HP_Model::initVariables() {
 	alpha = vector<double>(numIsos);
 	for (int i = 0; i < numIsos; i++) {
-		alpha[i] = param.initAlpha;
+		alpha[i] = 1.0;
 	}
 	betasBySub = vector<vector<double> >(numSubs);
 	for (int i = 0; i < numSubs; i++) {
@@ -197,6 +201,7 @@ void HP_Model::initVariables() {
 
 // load data and initialize variables
 bool HP_Model::preprocessing() {
+   startTime = clock();
 	cerr << "Loading gene..." << endl;
 	loadGene();
 	if (gene.mRNAs.size() <= 1) {
@@ -694,6 +699,7 @@ void HP_Model::saveHumanReadable(ofstream &of) {
 		}
 		of << endl;
 	}
+   /*
 	of << "# rs" << endl;
 	for (int m = 0; m < numSubs; m++) {
 		for (int n = 0; n < numReadsBySub[m]; n++) {
@@ -714,11 +720,13 @@ void HP_Model::saveHumanReadable(ofstream &of) {
 		}
 		of << endl;
 	}
+   */
 	of << "# done";
 }
 
 
 void HP_Model::saveFPKM(ofstream &of) {
+   of << "# time" << endl << (clock()-startTime)/(double)CLOCKS_PER_SEC << endl; 
 	of << "# isFinished" << endl << isFinished << endl;
 	of << "# gene" << endl << gene.ID << endl;
 	of << "# numIsos" << endl << numIsos << endl;

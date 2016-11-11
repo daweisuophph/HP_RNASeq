@@ -83,12 +83,6 @@ Temp_Param parseArg(int argc, char **argv)  {
 				errorFlag = true;
 				cerr << "Error: invalid overhang length \"" << argv[i] << "\"." << endl;
 			}
-		} else if (strcmp(argv[i], "--init-alpha")==0 && i+1<argc) {
-			param.initAlpha = atof(argv[++i]);
-			if (param.initAlpha <= 0) { 
-				errorFlag = true;
-				cerr << "Error: invalid intial alpha \"" << argv[i] << "\"." << endl;
-			}
 		} else if (strcmp(argv[i], "--trunk-size")==0 && i+1<argc) {
 			tmpParam.trunkSize = atoi(argv[++i]);
 			if (tmpParam.trunkSize == 0) {
@@ -151,7 +145,6 @@ Temp_Param parseArg(int argc, char **argv)  {
 		cerr << "--min-read <minimum number of reads>" << endl;
 		cerr << "--read-len <read length>" << endl;
 		cerr << "--overhang-len <overhang length>" << endl;
-		cerr << "--init-alpha <initial alpha length>" << endl;	
 		cerr << "--trunk-size <trunk size>" << endl;
 		cerr << "--paired-end <mean> <std>" << endl;
 		cerr << "--in-iter <# of inner iters>" << endl;
@@ -240,7 +233,6 @@ int main(int argc, char **argv) {
 			script << " --min-read " << tmpParam.param.minRead;
 			script << " --read-len " << tmpParam.param.readLen;
 			script << " --overhang-len " << tmpParam.param.overhangLen;
-			script << " --init-alpha " << tmpParam.param.initAlpha;
 			if (!tmpParam.param.isSingleEnd) {
 				script << " --paired-end " << tmpParam.param.meanInsertedLen
 					<< " " << tmpParam.param.stdInsertedLen;

@@ -75,12 +75,6 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 				errorFlag = true;
 				cerr << "Error: invalid overhang length \"" << argv[i] << "\"." << endl;
 			}
-		} else if (strcmp(argv[i], "--init-alpha")==0 && i+1<argc) {
-			param.initAlpha = atof(argv[++i]);
-			if (param.initAlpha <= 0) { 
-				errorFlag = true;
-				cerr << "Error: invalid intial alpha \"" << argv[i] << "\"." << endl;
-			}
 		} else if (strcmp(argv[i], "--paired-end") == 0 && i+2<argc) {
 			param.isSingleEnd = 0;
 			param.meanInsertedLen = atof(argv[++i]); // now it does not check for error
@@ -140,7 +134,6 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 		cerr << "--min-read <minimum number of reads>" << endl;
 		cerr << "--read-len <read length>" << endl;
 		cerr << "--overhang-len <overhang length>" << endl;	
-		cerr << "--init-alpha <initial alpha length>" << endl;	
 		cerr << "--paired-end <mean> <std>" << endl;	
 		cerr << "--in-iter <# of inner iters>" << endl;	
 		cerr << "--out-iter <# of outer iters>" << endl;

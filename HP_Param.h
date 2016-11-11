@@ -1,7 +1,7 @@
 /*
  Author: Hao Peng (pengh@purdue.edu)
- Date: Aug 29, 2016
- Version: 1.1v
+ Date: May 8, 2013
+ Version: 1.0v
  */
 #ifndef _HP_PARAM
 #define _HP_PARAM
@@ -19,7 +19,6 @@ public:
 	int minRead; // minimum number of reads
 	int readLen; // read length
 	int overhangLen; // Length of overhang constraints imposed on junctions.
-   double initAlpha; // initial value of alpha
 	string geneID; // Gene ID
 	string gff; //GFF filename
 	list<string> bams;

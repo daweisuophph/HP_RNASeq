@@ -1,7 +1,7 @@
 /*
  Author: Hao Peng (pengh@purdue.edu)
- Date: Aug 29, 2016
- Version: 1.1v
+ Date: May 8, 2013
+ Version: 1.0v
  */
 #include "HP_Param.h"
 #include <sstream>
@@ -18,7 +18,6 @@ HP_Param::HP_Param() {
 	gff = string();
 	bams = list<string>();
 	overhangLen = 1;
-   initAlpha = 1.0;
 	outputDir = string();
 	numInIters = 5;
 	numOutIters = 5000;

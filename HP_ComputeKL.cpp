@@ -168,8 +168,10 @@ double alphaKL(vector<double> &a1, vector<double> &a2) {
 	}
 	// kl(q(a1)||q(a2)) + kl(q(a2)||q(a1))
 	for (int k = 0; k < a1.size(); k++) {
-		kl += (a1[k]/s1) * log((a1[k]/s1) / (a2[k]/s2));
+      kl += (a1[k]/s1) * log((a1[k]/s1) / (a2[k]/s2));
 		kl += (a2[k]/s2) * log((a2[k]/s2) / (a1[k]/s1));
+	   //kl += (a1[k]-a2[k])*(digamma(a1[k])-digamma(s1));
+		//kl += (a2[k]-a1[k])*(digamma(a2[k])-digamma(s2));
 	}
 	return kl;
 }

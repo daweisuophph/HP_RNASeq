@@ -13,6 +13,7 @@
 #include <fstream>
 #include <map>
 
+#include<time.h>
 #include <lbfgs.h>
 #include "HP_Read.h"
 #include "HP_Gene.h"
@@ -60,6 +61,10 @@ private:
 	vector<double> q;
 	//isoform->gradient
 	vector<double> g;
+
+   // start time
+   clock_t startTime;
+
 	bool isFinished;
 	char *outputBuffer;
 

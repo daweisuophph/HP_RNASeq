@@ -112,6 +112,7 @@ void HP_Gff::readRecordV3(char **fields) {
 				strcmp(fields[2], "snRNA") == 0 ||
 				strcmp(fields[2], "miRNA") == 0 ||
 				strcmp(fields[2], "lincRNA") == 0 ||
+				strcmp(fields[2], "ncRNA") == 0 ||
 			   strcmp(fields[2], "mRNA") == 0) {
 		r = new HP_MRNA();
 	} else if (strcmp(fields[2], "exon") == 0) {
