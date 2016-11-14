@@ -1,7 +1,14 @@
 ***DEISoM*** is software using hierarchical Bayesian model for ***D***ifferentially ***E***xpressed ***Iso***form detection from ***M***ultiple biological replicates for identifying DE (Differentially Expressed) isoforms from multiple biological replicates representing two conditions, e.g., multiple samples from healthy and diseased subjects.
 
+# Table of Contents
+1. [Introduction](#Introduction)
+2. [Installation](#Installation)
+3. [Instructions](#Instructions)
+4. [Simulations](#Simulations)
+5. [License](#License)
+6. [Reference Paper](#Reference Paper)
 
-#Introduction
+# Introduction
 
 DEIsoM first estimates isoform expression within each condition by (1) capturing common patterns from sample replicates while allowing individual differences, and (2) modeling the uncertainty introduced by ambiguous read mapping in each replicate. Specifically, we introduce a Dirichlet prior distribution to capture the common expression pattern of replicates from the same condition,  and treat the isoform expression of individual replicates as samples from this  distribution. Ambiguous read mapping is modeled as a multinomial distribution, and ambiguous reads are assigned  to the most probable isoform in each replicate. Second, DEIsoM couples an efficient variational inference and a post-analysis method to improve the accuracy and speed of identification of DE isoforms over  alternative methods. 
 
@@ -12,7 +19,7 @@ DEIsoM first estimates isoform expression within each condition by (1) capturing
   - For previous versions, please remove -lboost_system in makefile
   - Remember to set BOOST_HOME: `export BOOST_HOME=[path to boost home folder]`
 
-### Third-party software
+### Third-Party Software
 In the folder third_party, we have prepared the some third_party libraries:
 - [liblbfgs](http://www.chokkan.org/software/liblbfgs/)
   - Used for optimization
@@ -36,14 +43,14 @@ After successfully compilation of the code, one can check its installation by te
     chr22 ENSG00000100065  1 1 0.0912106
 ```
 
-# Instructions
-### Prepare indexed reference from GFF3 file
+## Instructions
+### Prepare Indexed Reference From GFF3 File
 For fast computing, DEIsoM first build indexed reference. We build a GFF3 file for every gene seperately from a single gff3 file. We now only support gff3 format. To build the indexed reference, one can run:
 ```
 indexGFF [path to gff3 file] [output indexed reference folder]
 ```
 
-### Prepare BAM files from FASTQ data
+### Prepare BAM files From FASTQ Data
 - First, we can use alignment software to map the RNAseq data to our referece. We have tested tophat and RUM. And here is an example of command to run tophat:
 ```
 tophat -p 1 -o [output folder] [reference folder] [pair-end read 1] [pair-end read 2]
@@ -54,7 +61,7 @@ samtools sort [path to accepted_hits.bam] -o accepted_hits.sorted.bam
 samtools index accepted_hits.sorted.bam
 ```
 
-### Run a job
+### Run A Job
 Suppose we have M replicates and we want to build a model for N genes: gene 1, ..., gene N. The corresponding built indexed references are: gff 1, ..., gff N. We can run the model in one script:
 ```
 run --gene-ids [gene 1], [gene 2], ..., [gene N]   \
@@ -76,7 +83,59 @@ For computing the FPKM for the transcripts, we need you to pass an addition opti
 ```
 read count file is a file of M integers seperated by spaces. Each integer represents the total number of effective reads for each replicate. This can be computed using samtools. If you dont't want to compute the FPKM, this option can be omitted.
 
-### Split jobs for computing on a cluster
+For each gene. The run program will output two files: `[Gene ID]` and `[Gene ID].fpkm`.
+If you use `--human-readable` option, the `[Gene ID`] will look like:
+```
+# isFinished
+[1 or 0]
+# gene
+[Gene ID]
+# numIsos
+[K (# of Isoforms)]
+# isoforms
+[Isoform ID 1] [Isoform ID 2] ... [Isoform ID K]
+# numSubs
+[M (# of Subjects)]
+# totalNumReadsBySub
+[# reads in Sub 1] [# reads in Sub 2] ... [# reads in Sub M]
+# numReadsBySub
+[# reads mapped in Sub 1] [# reads mapped in Sub 2] ... [# reads mapped in Sub M]
+# alpha
+[alpha 1] ... [alpha K]
+# betas
+[beta 1,1] ... [beta 1,K]
+...
+[beta M,1] ... [beta M,K]
+# rs
+...
+# done
+```
+The `[Gene ID].fpkm` file will look like:
+```
+# time
+[running time]
+# isFinished
+[1 or 0]
+# gene
+[Gene ID]
+# numIsos
+[K (# of Isoforms)]
+# isoforms
+[Isoform ID 1] [Isoform ID 2] ... [Isoform ID K]
+# numSubs
+[M (# of Subjects)]
+# totalNumReadsBySub
+[# reads in Sub 1] [# reads in Sub 2] ... [# reads in Sub M]
+# numReadsBySub
+[# reads mapped in Sub 1] [# reads mapped in Sub 2] ... [# reads mapped in Sub M]
+# FPKM
+[FPKM for Isoform 1 Subject 1] ... [FPKM for Isoform K Subject 1]
+...
+[FPKM for Isoform 1 Subject M] ... [FPKM for Isoform K Subject M]
+# done
+```
+
+### Split Jobs for Computing on A Cluster
 Submitting a large number of genes using the above script is not efficient. And we sometimes want to run these jobs in parallel on a large cluster. We have provided a helpder program to automatically deivide the jobs in small chunks:
 ```
 split --trunk-size [trunk size]   \
@@ -90,17 +149,21 @@ split --trunk-size [trunk size]   \
 ```
 You can also pass other options of `run` to it.
 
-### Computing the scores (KL divergences) for identifying DE genes
+### Computing the Scores (KL divergences) for Identifying DE Genes
 To evaluate the results, we can use:
+- For general evaluations (either paired or unpaired between groups)
 ```
 kl [indexed GFF] [output of group 1] [output of group 2]  
 ```
-for general evaluations (either paired or unpaired between groups)
-or
+- For paired evalutions only
 ```
 kl --beta [indexed GFF] [output of group 1] [output of group 2] 
 ```
-for paired evalutions only.
+The output of kl will have multpile lines that looks like:
+```
+chr22 ENSG00000100065  1 1 0.0912106
+```
+Each line is an output for one gene. Column 1 is the chromosome ID. Column 2 is the gene ID. Column 3 represents whether the run program finished for group 1. Column 4 represents whether the run program finished for group 2. Column 4 is the kl divergence score.
 
 # Simulations
 We have upload the scripts and code for creating sythetic data in our paper. We also include all scripts for all other models that we used in the experiments. Please check `simulation` folder for details.
