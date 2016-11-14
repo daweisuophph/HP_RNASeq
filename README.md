@@ -37,6 +37,73 @@ After successfully compilation of the code, one can check its installation by te
 ```
 
 # Instructions
+### Prepare indexed reference from GFF3 file
+For fast computing, DEIsoM first build indexed reference. We build a GFF3 file for every gene seperately from a single gff3 file. We now only support gff3 format. To build the indexed reference, one can run:
+```
+indexGFF [path to gff3 file] [output indexed reference folder]
+```
+
+### Prepare BAM files from FASTQ data
+- First, we can use alignment software to map the RNAseq data to our referece. We have tested tophat and RUM. And here is an example of command to run tophat:
+```
+tophat -p 1 -o [output folder] [reference folder] [pair-end read 1] [pair-end read 2]
+```
+- Then, we need to sort the accepted_hits.bam (the output of tophat) and make index for them.
+```
+samtools sort [path to accepted_hits.bam] -o accepted_hits.sorted.bam
+samtools index accepted_hits.sorted.bam
+```
+
+### Run a job
+Suppose we have M replicates and we want to build a model for N genes: gene 1, ..., gene N. The corresponding built indexed references are: gff 1, ..., gff N. We can run the model in one script:
+```
+./run --gene-ids [gene 1], [gene 2], ..., [gene N]   \
+      --gffs [gff 1], [gff 2], ..., [gff N]   \
+      --bams [bam 1],[bam 2],...,[bam M]   \
+      --read-len [read length]   \
+      --paired-end [mean length of insert length] [standard derivation of insert length]   \
+      --out-iter [number of iterations for updating alpha]   \
+      --in-iter [number of iterations for updating variational parameters]   \
+      --output [output folder]
+```
+The default output is in binary format. If you want to have a human readable format, you can add this option:
+```
+--human-readable
+```
+For computing the FPKM for the transcripts, we need you to pass an addition option:
+```
+--read-count [read count file]
+```
+read count file is a file of M integers seperated by spaces. Each integer represents the total number of effective reads for each replicate. This can be computed using samtools. If you dont't want to compute the FPKM, this option can be omitted.
+
+### Split jobs for computing on a cluster
+Submitting a large number of genes using the above script is not efficient. And we sometimes want to run these jobs in parallel on a large cluster. We have provided a helpder program to automatically deivide the jobs in small chunks:
+```
+./split --trunk-size [trunk size]   \
+        --gff-dir [indexed gff directory] \
+        --bams [bam 1],[bam 2],...,[bam M]   \
+        --read-len [read length]   \
+        --paired-end [mean length of insert length] [standard derivation of insert length]   \
+        --out-iter [number of iterations for updating alpha]   \
+        --in-iter [number of iterations for updating variational parameters]   \
+        --output [output folder]
+```
+You can also pass other options of `run` to it.
+
+### Computing the scores (KL divergences) for identifying DE genes
+To evaluate the results, we can use:
+```
+kl [indexed GFF] [output of group 1] [output of group 2]  
+```
+for general evaluations (either paired or unpaired between groups)
+or
+```
+kl --beta [indexed GFF] [output of group 1] [output of group 2] 
+```
+for paired evalutions only.
+
+# Simulations
+We have upload the scripts and code for creating sythetic data in our paper. We also include all scripts for all other models that we used in the experiments. Please check `simulation` folder for details.
 
 # License
 MIT License
