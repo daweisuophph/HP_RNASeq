@@ -58,13 +58,13 @@ samtools index accepted_hits.sorted.bam
 Suppose we have M replicates and we want to build a model for N genes: gene 1, ..., gene N. The corresponding built indexed references are: gff 1, ..., gff N. We can run the model in one script:
 ```
 run --gene-ids [gene 1], [gene 2], ..., [gene N]   \
-      --gffs [gff 1], [gff 2], ..., [gff N]   \
-      --bams [bam 1],[bam 2],...,[bam M]   \
-      --read-len [read length]   \
-      --paired-end [mean length of insert length] [standard derivation of insert length]   \
-      --out-iter [number of iterations for updating alpha]   \
-      --in-iter [number of iterations for updating variational parameters]   \
-      --output [output folder]
+    --gffs [gff 1], [gff 2], ..., [gff N]   \
+    --bams [bam 1],[bam 2],...,[bam M]   \
+    --read-len [read length]   \
+    --paired-end [mean length of insert length] [standard derivation of insert length]   \  
+    --out-iter [number of iterations for updating alpha]   \
+    --in-iter [number of iterations for updating variational parameters]   \
+    --output [output folder]
 ```
 The default output is in binary format. If you want to have a human readable format, you can add this option:
 ```
@@ -80,13 +80,13 @@ read count file is a file of M integers seperated by spaces. Each integer repres
 Submitting a large number of genes using the above script is not efficient. And we sometimes want to run these jobs in parallel on a large cluster. We have provided a helpder program to automatically deivide the jobs in small chunks:
 ```
 split --trunk-size [trunk size]   \
-        --gff-dir [indexed gff directory] \
-        --bams [bam 1],[bam 2],...,[bam M]   \
-        --read-len [read length]   \
-        --paired-end [mean length of insert length] [standard derivation of insert length]   \
-        --out-iter [number of iterations for updating alpha]   \
-        --in-iter [number of iterations for updating variational parameters]   \
-        --output [output folder]
+      --gff-dir [indexed gff directory] \
+      --bams [bam 1],[bam 2],...,[bam M]   \
+      --read-len [read length]   \
+      --paired-end [mean length of insert length] [standard derivation of insert length]   \
+      --out-iter [number of iterations for updating alpha]   \
+      --in-iter [number of iterations for updating variational parameters]   \
+      --output [output folder]
 ```
 You can also pass other options of `run` to it.
 
