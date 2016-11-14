@@ -30,7 +30,7 @@ First return to the main directory of DEIsoM and then build DEIsom by type `make
 After successfully compilation of the code, one can check its installation by testing the demo.
 
 - Change the current working directory to `demo`
-- `.\demo.sh`
+- `./demo.sh`
 - Check the output folder and kl.txt file. The kl.txt file will have the output like
 ```
     chr22 ENSG00000100065  1 1 0.0912106
@@ -57,7 +57,7 @@ samtools index accepted_hits.sorted.bam
 ### Run a job
 Suppose we have M replicates and we want to build a model for N genes: gene 1, ..., gene N. The corresponding built indexed references are: gff 1, ..., gff N. We can run the model in one script:
 ```
-./run --gene-ids [gene 1], [gene 2], ..., [gene N]   \
+run --gene-ids [gene 1], [gene 2], ..., [gene N]   \
       --gffs [gff 1], [gff 2], ..., [gff N]   \
       --bams [bam 1],[bam 2],...,[bam M]   \
       --read-len [read length]   \
@@ -79,7 +79,7 @@ read count file is a file of M integers seperated by spaces. Each integer repres
 ### Split jobs for computing on a cluster
 Submitting a large number of genes using the above script is not efficient. And we sometimes want to run these jobs in parallel on a large cluster. We have provided a helpder program to automatically deivide the jobs in small chunks:
 ```
-./split --trunk-size [trunk size]   \
+split --trunk-size [trunk size]   \
         --gff-dir [indexed gff directory] \
         --bams [bam 1],[bam 2],...,[bam M]   \
         --read-len [read length]   \
