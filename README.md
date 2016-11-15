@@ -1,4 +1,4 @@
-***DEISoM*** is software using hierarchical Bayesian model for ***D***ifferentially ***E***xpressed ***Iso***form detection from ***M***ultiple biological replicates for identifying DE (Differentially Expressed) isoforms from multiple biological replicates representing two conditions, e.g., multiple samples from healthy and diseased subjects.
+***DEIsoM*** is software using hierarchical Bayesian model for ***D***ifferentially ***E***xpressed ***Iso***form detection from ***M***ultiple biological replicates for identifying DE (Differentially Expressed) isoforms from multiple biological replicates representing two conditions, e.g., multiple samples from healthy and diseased subjects.
 
 # Table of Contents
 1. [Introduction](#introduction)
@@ -166,7 +166,7 @@ chr22 ENSG00000100065  1 1 0.0912106
 Each line is an output for one gene. Column 1 is the chromosome ID. Column 2 is the gene ID. Column 3 represents whether the run program finished for group 1. Column 4 represents whether the run program finished for group 2. Column 4 is the kl divergence score.
 
 # Simulations
-We have upload the scripts and code for creating sythetic data in our paper. We also include all scripts for all other models that we used in the experiments. Please check [simulation](https://github.com/hao-peng/DEISoM/tree/master/simulation) for details.
+We have upload the scripts and code for creating sythetic data in our paper. We also include all scripts for all other models that we used in the experiments. Please check [simulation](https://github.com/hao-peng/DEIsoM/tree/master/simulation) for details.
 
 # License
 MIT License
