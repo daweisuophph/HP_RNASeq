@@ -81,7 +81,10 @@ For computing the FPKM for the transcripts, we need you to pass an addition opti
 ```
 --read-count [read count file]
 ```
-read count file is a file of M integers seperated by spaces. Each integer represents the total number of effective reads for each replicate. This can be computed using samtools. If you dont't want to compute the FPKM, this option can be omitted.
+Read count file is a file of M integers seperated by spaces. Each integer represents the total number of effective reads for each replicate. This can be computed using samtools. If you dont't want to compute the FPKM, this option can be omitted. FPKM for isoform k of a gene for the subject m is computed as 
+```
+FPKM_{mk} = E[\psi_k] * numReadsMappedBySub[m] / numReadsPossible[k] / totalNumReadsBySub[m] * 1.0e9
+```
 
 For each gene. The run program will output two files: `[Gene ID]` and `[Gene ID].fpkm`.
 If you use `--human-readable` option, the `[Gene ID`] will look like:
