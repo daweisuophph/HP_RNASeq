@@ -45,13 +45,13 @@ After successfully compilation of the code, one can check its installation by te
 
 ## Instructions
 ### Prepare Indexed Reference From GFF3 File
-For fast computing, DEIsoM first build indexed reference. We build a GFF3 file for every gene seperately from a single gff3 file. We now only support gff3 format. To build the indexed reference, one can run:
+For fast computing, DEIsoM first build indexed reference. We build a GFF3 file for every gene seperately from a single gff3 file. The annotation we used in our experiment can be downloaded from [here](http://ftp.ensembl.org/pub/grch37/release-84/). We now only support gff3 format. To build the indexed reference, one can run:
 ```
 indexGFF [path to gff3 file] [output indexed reference folder]
 ```
 
 ### Prepare BAM files From FASTQ Data
-- First, we can use alignment software to map the RNAseq data to our referece. We have tested tophat and RUM. And here is an example of command to run tophat:
+- First, we can use alignment software to map the RNAseq data to our referece. Currently, we only support pair-end reads. There is no special requirements for the read length. We have tested tophat and RUM. And here is an example of command to run tophat:
 ```
 tophat -p 1 -o [output folder] [reference folder] [pair-end read 1] [pair-end read 2]
 ```
