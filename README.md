@@ -44,6 +44,14 @@ After successfully compilation of the code, one can check its installation by te
 ```
 
 ## Instructions
+### Prepare Annotation and Sequence Files
+For mapping or sampling reads, we need the annotation and seuqence files.  For simluation experiements, we used the gtf and gff3 files in [Ensembl GRCh37 Release 84 Databases](ftp://ftp.ensembl.org/pub/grch37/release-84/) as the annotation files and the fasta files in [GRCh37 patch_release_13 (GRCh37.p13)](ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh37.p13/Primary_Assembly/assembled_chromosomes/FASTA/) as the sequence files. For real HCC data, we used the gtf file in [UCSC hg19](http://genes.mit.edu/burgelab/miso/annotations/ucsc_tables/hg19/) as the annotation file and the fasta files in [GRCh37 Genome Reference Consortium Human Reference 37](http://hgdownload-test.cse.ucsc.edu/goldenPath/hg19/chromosomes/) as the sequence files.
+
+As DEIsoM only accepts gff3 format annotation file. We could use the follwing script to conver gtf format to gff3 format:
+```
+gffread ensGene.gff3 -T -o ensGene.gtf
+```
+
 ### Prepare Indexed Reference From GFF3 File
 For fast computing, DEIsoM first build indexed reference. We build a GFF3 file for every gene seperately from a single gff3 file. The annotation we used in our experiment can be downloaded from [here](http://ftp.ensembl.org/pub/grch37/release-84/). We now only support gff3 format. To build the indexed reference, one can run:
 ```
