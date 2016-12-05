@@ -68,6 +68,7 @@ tophat -p 1 -o [output folder] [reference folder] [pair-end read 1] [pair-end re
 samtools sort [path to accepted_hits.bam] -o accepted_hits.sorted.bam
 samtools index accepted_hits.sorted.bam
 ```
+- In our experiments, we used all mapped the reads which includes both the junction reads and non-junction reads.
 
 ### Run A Job
 Suppose we have M replicates and we want to build a model for N genes: gene 1, ..., gene N. The corresponding built indexed references are: gff 1, ..., gff N. We can run the model in one script:
