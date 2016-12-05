@@ -160,8 +160,8 @@ split --trunk-size [trunk size]   \
 ```
 You can also pass other options of `run` to it.
 
-### Computing the Scores (KL divergences) for Identifying DE Genes
-To evaluate the results, we can use:
+### Compute the Scores (KL divergences) for Identifying DE Genes
+To evaluate the results, we can either use the KL divergence between alphas or the KL divergence between betas. We can use these commends:
 - For general evaluations (either paired or unpaired between groups)
 ```
 kl [indexed GFF] [output of group 1] [output of group 2]  
