@@ -62,31 +62,21 @@ string HP_Record::toString() const {
 string HP_Exon::toString() const {
 	stringstream sstm;
 	sstm << HP_Record::toString() << endl;
-	/*
-	for (list<HP_CDS>::iterator ii = HP_CDSs.begin(); ii != HP_CDSs.end(); ii++) {
-		sstm << (*ii).toString() << endl;
-	}
-	 */
 	return sstm.str();
 }
 
 string HP_MRNA::toString() const{
 	stringstream sstm;
 	sstm << HP_Record::toString() << endl;
-	for (list<HP_Exon>::const_iterator ii = exons.begin(); ii != exons.end(); ii++) {
+	for (vector<HP_Exon>::const_iterator ii = exons.begin(); ii != exons.end(); ii++) {
 		sstm << (*ii).toString();
 	}
-	/*
-	for (list<HP_CDS>::iterator ii = HP_CDSs.begin(); ii != HP_CDSs.end(); ii++) {
-		sstm << (*ii).toString() << endl;
-	}
-	 */
 	return sstm.str();
 }
 
 int HP_MRNA::getLength() const {
 	int len = 0;
-	for (list<HP_Exon>::const_iterator ii = exons.begin(); ii != exons.end(); ii++) {
+	for (vector<HP_Exon>::const_iterator ii = exons.begin(); ii != exons.end(); ii++) {
 		len += ii->end-ii->start+1;
 	}
 	return len;
@@ -95,7 +85,7 @@ int HP_MRNA::getLength() const {
 string HP_Gene::toString() const{
 	stringstream sstm;
 	sstm << HP_Record::toString() << endl;
-	for (list<HP_MRNA>::const_iterator ii = mRNAs.begin(); ii != mRNAs.end(); ii++) {
+	for (vector<HP_MRNA>::const_iterator ii = mRNAs.begin(); ii != mRNAs.end(); ii++) {
 		sstm << (*ii).toString();
 	}
 	return sstm.str();
@@ -106,7 +96,7 @@ string HP_Gene::toString() const{
 void HP_Gene::getBounds(int &beg, int &end) const {
 	beg = -1;
 	end = -1;
-	for (list<HP_MRNA>::const_iterator ii = mRNAs.begin();
+	for (vector<HP_MRNA>::const_iterator ii = mRNAs.begin();
 		 ii != mRNAs.end(); ii++) {
 		if (beg == -1 || ii->start < beg) {
 			beg = ii->start;

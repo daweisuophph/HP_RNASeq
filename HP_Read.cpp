@@ -33,7 +33,7 @@ bool HP_Read::doesAlignTo(const HP_MRNA &mRNA) const {
 	int leftLen = len;
 	int curr = pos;
 	vector<int32_t> isoCigar;
-	for (list<HP_Exon>::const_iterator ii = mRNA.exons.begin();
+	for (vector<HP_Exon>::const_iterator ii = mRNA.exons.begin();
 		 ii != mRNA.exons.end() && leftLen > 0; ii++) {
 		if (curr < ii->start) {
 			int count = ii->start - curr;
@@ -84,7 +84,7 @@ bool HP_Read::isOverhangOK(int overhangLen) const {
 
 int HP_Read::getRelativePosOn(const HP_MRNA &mRNA) const{
 	int relPos = 1; //1-based
-	for (list<HP_Exon>::const_iterator ii = mRNA.exons.begin();
+	for (vector<HP_Exon>::const_iterator ii = mRNA.exons.begin();
 		 ii != mRNA.exons.end(); ii++) {
 		if (pos >= ii->start && pos <= ii->end) {
 			relPos += pos - ii->start;

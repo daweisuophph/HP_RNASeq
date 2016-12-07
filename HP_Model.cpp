@@ -6,7 +6,9 @@
 #include <cstdlib>
 #include <sstream>
 #include <limits>
+#include <thread>
 #include <cmath>
+#include <omp.h>
 #include "HP_Model.h"
 #include "HP_Gff.h"
 #include <boost/math/distributions/normal.hpp>
@@ -15,15 +17,15 @@
 #include <boost/filesystem.hpp>
 #include "sam.h"
 #include "asa121.h"
-# define M_PI 3.14159265358979323846
 
+//const int M_PI = acos(-1);
 
 using namespace std;
 using namespace boost::math;
 
 HP_Model::HP_Model(const HP_Param &param) {
 	this->param = param;
-	readsByName = vector<map<string, list<HP_Read> > >(param.bams.size());
+	readsByName = vector<unordered_map<string, vector<HP_Read> > >(param.bams.size());
 	outputBuffer = new char[MAX_BUFFER_SIZE];
 }
 
@@ -31,16 +33,16 @@ HP_Model::~HP_Model() {
 	delete outputBuffer;
 }
 
-// load gene from indexed GFF file
-void HP_Model::loadGene() {
+// load mRNAs from indexed GFF file
+void HP_Model::loadMRNAs() {
 	HP_Gff gff(param.gff);
-	if (gff.genes.size() != 1) {
-		cerr << "Erorr: number of genes is not exactly one in GFF file \""
+   mRNAs = gff.mRNAs;
+	if (mRNAs.size() <= 0) {
+		cerr << "Erorr: number of mRNAs should be positive in\""
 			<< param.gff << "\"." << endl;
 		exit(1);
 	}
-	gene = *gff.genes.begin();
-	numIsos = gene.mRNAs.size();
+	numIsos = mRNAs.size();
 }
 
 struct _HP_TMPSTRUCT {
@@ -48,58 +50,31 @@ struct _HP_TMPSTRUCT {
 	int index;
 };
 
-// callback for bam_fetch()
-static int fetch_func(const bam1_t *b, void *data) {
-	HP_Read read;
-	read.pos = b->core.pos+1; // change from 0 based to 1 based
-	read.name = bam1_qname(b);
-	read.len = b->core.l_qseq;
-	read.cigar = vector<int32_t>(b->core.n_cigar);
-	uint32_t *cigar = bam1_cigar(b);
-	for (int i = 0; i < b->core.n_cigar; i++ ) {
-		read.cigar[i] = cigar[i];
-	}
-	//cout << read.toString() << endl;
-	struct _HP_TMPSTRUCT *tmp = (struct _HP_TMPSTRUCT *) data;
-	tmp->model->addRead(read, tmp->index);
-    return 0;
-}
-
 // load reads that intersect with the Gene.
 void HP_Model::loadReads() {
-	int beg, end;
-	gene.getBounds(beg, end);
-	stringstream sstm;
-	sstm << gene.seqid << ":" << beg << "-" << end;
-	//cerr << "Range: " << sstm.str() << endl;
-	int ind = 0;
-	for (list<string>::iterator ii = param.bams.begin();
-		 ii != param.bams.end(); ii++, ind++) {
-		samfile_t *in = samopen(ii->c_str(), "rb", 0);
+   for (int subInd = 0; subInd < param.bams.size(); subInd++) {
+		samfile_t *in = samopen(param.bams[subInd].c_str(), "rb", 0);
 		if (in == 0) {
-			cerr << "Error: cannot read BAM file \"" << (*ii) << "\"." << endl;
+			cerr << "Error: cannot read BAM file \"" << 
+           param.bams[subInd] << "\"." << endl;
 			exit(1);
 		}
-		int newBeg, newEnd, ref;
-		bam_parse_region(in->header, sstm.str().c_str(),
-						 &ref, &newBeg, &newEnd);
-		//cout << ref << " " << newBeg << " " << newEnd << endl;
-		if (ref < 0) {
-			cerr << "Warning: region \"" << sstm.str() << "\" is invalid." << endl;
-			return;
-		}
-		bam_index_t *idx;
-        bam_plbuf_t *buf;
-		idx = bam_index_load(ii->c_str()); // load BAM index
-        if (idx == 0) {
-            cerr << "Error: BAM indexing file is not available." << endl;
-            exit(1);
-        }
-		struct _HP_TMPSTRUCT tmp;
-		tmp.model = this;
-		tmp.index = ind;
-		bam_fetch(in->x.bam, idx, ref, newBeg, newEnd, &tmp, fetch_func);
-        bam_index_destroy(idx);
+
+      bam1_t* b=bam_init1();
+      while (bam_read1(in->x.bam, b) >= 0) {
+         HP_Read read;
+         read.pos = b->core.pos+1; // change from 0 based to 1 based
+         read.name = bam1_qname(b);
+         read.len = b->core.l_qseq;
+         read.cigar = vector<int32_t>(b->core.n_cigar);
+         uint32_t *cigar = bam1_cigar(b);
+         for (int i = 0; i < b->core.n_cigar; i++ ) {
+            read.cigar[i] = cigar[i];
+         }
+	      readsByName[subInd][read.name].push_back(read);
+      }
+
+      bam_destroy1(b);
 		samclose(in);
 	}
 }
@@ -126,11 +101,9 @@ void HP_Model::loadReadCount() {
 void HP_Model::computeLogScore() {
 
 	vector<int> isoLengths(numIsos);
-	int i = 0;
-	for (list<HP_MRNA>::iterator ii = gene.mRNAs.begin();
-		 ii != gene.mRNAs.end(); ii++, i++){
-		isoLengths[i] = ii->getLength();
-	}
+	for (int i = 0; i < mRNAs.size(); i++) {
+      isoLengths[i] = mRNAs[i].getLength(); 
+   }
 	
 	numReadsPossible.resize(numIsos);
 	for (int isoInd = 0; isoInd < numReadsPossible.size(); isoInd++) {
@@ -147,22 +120,17 @@ void HP_Model::computeLogScore() {
 	numSubs = alignmentsBySub.size();
 	numReadsBySub = vector<int>(numSubs);
 	logScore = vector<vector<vector<double> > >(numSubs);
-	
-	list<list<vector<bool> > >::iterator iSub1 = alignmentsBySub.begin();
-	list<list<vector<int> > >::iterator iSub2 = insertedLensBySub.begin();
-	for (int subInd = 0; subInd < numSubs; subInd++, iSub1++, iSub2++) {
-		numReadsBySub[subInd] = iSub1->size();
+
+	for (int subInd = 0; subInd < numSubs; subInd++) {
+		numReadsBySub[subInd] = alignmentsBySub[subInd].size();
 		logScore[subInd] = vector<vector<double> >(numReadsBySub[subInd]);
-		list<vector<bool> >::iterator iRead1 = iSub1->begin();
-		list<vector<int> >::iterator iRead2 = iSub2->begin();
-		for (int readInd = 0; readInd < numReadsBySub[subInd]; readInd++, iRead1++, iRead2++) {
+		for (int readInd = 0; readInd < numReadsBySub[subInd]; readInd++) {
 			logScore[subInd][readInd] = vector<double>(numIsos);
 			for (int isoInd = 0; isoInd < numIsos; isoInd++) {
-				if ((*iRead1)[isoInd]) {
+				if (alignmentsBySub[subInd][readInd][isoInd]) {
 					double logProbFrags = 0;
 					if (!param.isSingleEnd) {
-						//logProbFrags = log(pdf(pInsertLen, (*iRead2)[isoInd]));
-                  double tmp = (*iRead2)[isoInd] - (double) param.meanInsertedLen;
+                  double tmp = insertedLensBySub[subInd][readInd][isoInd] - (double) param.meanInsertedLen;
 						logProbFrags = -0.5*log(2*M_PI)-log((double)param.stdInsertedLen)-0.5*tmp*tmp/param.stdInsertedLen/param.stdInsertedLen;
 					}
 					logScore[subInd][readInd][isoInd] = log(1.0) - log(numReadsPossible[isoInd]) + logProbFrags;
@@ -191,8 +159,8 @@ void HP_Model::initVariables() {
 			rsBySub[i][j] = vector<double>(numIsos);
 		}
 	}
-	weights = vector<double>(numIsos);
-	weightedScore = vector<double>(numIsos);
+	weightsBySub = vector<vector<double> > (numSubs, vector<double>(numIsos));
+	weightedScoreBySub = vector<vector<double> > (numSubs, vector<double>(numIsos));
 	ss = vector<double>(numIsos);
 	q = vector<double>(numIsos);
 	g = vector<double>(numIsos);
@@ -202,9 +170,9 @@ void HP_Model::initVariables() {
 // load data and initialize variables
 bool HP_Model::preprocessing() {
    startTime = clock();
-	cerr << "Loading gene..." << endl;
-	loadGene();
-	if (gene.mRNAs.size() <= 1) {
+	cerr << "Loading mRNAs..." << endl;
+	loadMRNAs();
+	if (mRNAs.size() <= 1) {
 		cerr << "Warning: number of isoforms is less than 2. Skipping..." << endl;
 		return false;
 	}
@@ -225,7 +193,6 @@ bool HP_Model::preprocessing() {
 	cerr << "Initializing variables..." << endl;
 	initVariables();
 	// create directory to store output
-	param.outputDir += "/" + gene.seqid;
 	try {
 		boost::filesystem::create_directories(param.outputDir);
 	} catch (const boost::filesystem::filesystem_error& e) {
@@ -236,17 +203,11 @@ bool HP_Model::preprocessing() {
 	return true;
 }
 
-void HP_Model::addRead(const HP_Read &read, int ind) {
-	readsByName[ind][read.name].push_back(read);
-}
-
-
 void HP_Model::computeAlignments() {
 	for (int ind = 0; ind < readsByName.size(); ind++) {
-		list<vector<bool> >  alignments;
-		list<vector<int> > insertedLens;
-		for (map<string, list<HP_Read> >::iterator ii = readsByName[ind].begin();
-			 ii != readsByName[ind].end(); ii++) {
+		vector<vector<bool> >  alignments;
+		vector<vector<int> > insertedLens;
+		for (unordered_map<string, vector<HP_Read> >::iterator ii = readsByName[ind].begin(); ii != readsByName[ind].end(); ii++) {
 			if (param.isSingleEnd) {
 				if (ii->second.size() != 1) {
 					continue;
@@ -256,15 +217,15 @@ void HP_Model::computeAlignments() {
 					continue;
 				}
 			}
-			vector<bool> alignment = vector <bool>(gene.mRNAs.size());
-			vector<int> insertedLen = vector <int>(gene.mRNAs.size());
+			vector<bool> alignment = vector <bool>(mRNAs.size());
+			vector<int> insertedLen = vector <int>(mRNAs.size());
 			int isoformIndex = 0;
 			bool allMismatch = true;
-			for (list<HP_MRNA>::iterator ij = gene.mRNAs.begin();
-				 ij != gene.mRNAs.end(); ij++, isoformIndex++) {
+			for (vector<HP_MRNA>::iterator ij = mRNAs.begin();
+				 ij != mRNAs.end(); ij++, isoformIndex++) {
 				alignment[isoformIndex] = true;
 				if (param.isSingleEnd) {
-					list<HP_Read>::iterator read = ii->second.begin();
+					vector<HP_Read>::iterator read = ii->second.begin();
 					if (!read->doesAlignTo(*ij)) {
 						alignment[isoformIndex] = false;
 					}
@@ -272,8 +233,8 @@ void HP_Model::computeAlignments() {
 						alignment[isoformIndex] = false;
 					}
 				} else {
-					list<HP_Read>::iterator read1 = ii->second.begin();
-					list<HP_Read>::iterator read2 = read1;
+					vector<HP_Read>::iterator read1 = ii->second.begin();
+					vector<HP_Read>::iterator read2 = read1;
 					read2++;
 					if (!read1->doesAlignTo(*ij) ||
 						!read2->doesAlignTo(*ij)) {
@@ -315,23 +276,6 @@ void HP_Model::computeAlignments() {
 		alignmentsBySub.push_back(alignments);
 		insertedLensBySub.push_back(insertedLens);
 	}
-
-	/*
-	cerr << "Debug:" << endl;	
-	cerr << "num of isoforms" <<  numIsos << endl;
-	for (list<list<vector<bool> > >::iterator jj = alignmentsBySub.begin();
-			jj != alignmentsBySub.end(); jj++) {
-		for (int j = 0; j < numIsos; j++) {
-			int total = 0; 
-			for (list<vector<bool> >::iterator ii = jj->begin();
-				   ii != jj->end();	ii++){
-				if ((*ii)[j]) total += 1;
-			}
-			cerr << total << " ";
-		}
-		cerr << endl;
-	}
-	*/
 }
 
 static inline bool allClose(const vector<double> &a, const vector<double> &b, double thres) {
@@ -368,15 +312,15 @@ void HP_Model::updateRs(int subInd) {
 	}
 	double digammaSumBetas = digamma(sumBetas);
 	for (int k = 0; k < numIsos; k++) {
-		weights[k] = digamma(betas[k]) - digammaSumBetas;
+		weightsBySub[subInd][k] = digamma(betas[k]) - digammaSumBetas;
 	}
 	for (int n = 0; n < numReadsBySub[subInd]; n++) {
 		for (int k = 0; k < numIsos; k++) {
-			weightedScore[k] = logScore[subInd][n][k] + weights[k];
+			weightedScoreBySub[subInd][k] = logScore[subInd][n][k] + weightsBySub[subInd][k];
 		}
-		double normalizer = logSumExp(weightedScore);
+		double normalizer = logSumExp(weightedScoreBySub[subInd]);
 		for (int k = 0; k < numIsos; k++) {
-			rs[n][k] = exp(weightedScore[k] - normalizer);
+			rs[n][k] = exp(weightedScoreBySub[subInd][k] - normalizer);
 		}
 	}
 }
@@ -626,8 +570,6 @@ double HP_Model::computeLogVBLB() {
 	return logVBLB;
 }
 
-
-
 void HP_Model::performBVI() {
 	isFinished = false;
 	for (int currOutIter = 0; currOutIter < param.numOutIters; currOutIter++) {
@@ -636,21 +578,27 @@ void HP_Model::performBVI() {
 		}
 		vector<double> oldAlpha = alpha;
 		cerr << "Outer iter " << currOutIter << "..." << endl;
+         
+      vector<thread> threads;
+      #pragma omp parallel for
 		for (int subInd = 0; subInd < numSubs; subInd++) {
 			// init betas for this sub
 			for (int isoInd = 0; isoInd < numIsos; isoInd++) {
 				betasBySub[subInd][isoInd] = alpha[isoInd] + numReadsBySub[subInd]/(double) numIsos;
 			}
 			for (int currInIter = 0; currInIter < param.numInIters; currInIter++) {
-				vector<double> oldBetas = betasBySub[subInd];
-				updateRs(subInd);
-				updateBetas(subInd);
+            vector<double> oldBetas = betasBySub[subInd];
+
+            updateRs(subInd);
+            updateBetas(subInd);
+
 				if (allClose(betasBySub[subInd], oldBetas, 1e-15)) {
 					cerr << "Subject " << (subInd+1) << " converged in " << (currInIter+1) << " iterations."<< endl;
 					break;
 				}
 			}
 		}
+
 		cerr << "VBLB: " << computeLogVBLB() << endl;
 		if (numSubs == 1) {
 			cerr << "Only one subject. Do not update alpha." << endl;
@@ -668,11 +616,10 @@ void HP_Model::performBVI() {
 
 void HP_Model::saveHumanReadable(ofstream &of) {
 	of << "# isFinished" << endl << isFinished << endl;
-	of << "# gene" << endl << gene.ID << endl;
 	of << "# numIsos" << endl << numIsos << endl;
 	of << "# isoforms" << endl;
-	for (list<HP_MRNA>::iterator ii = gene.mRNAs.begin();
-		 ii != gene.mRNAs.end(); ii++) {
+	for (vector<HP_MRNA>::iterator ii = mRNAs.begin();
+		 ii != mRNAs.end(); ii++) {
 		of << ii->ID << " ";
 	}
 	of << endl;
@@ -728,11 +675,10 @@ void HP_Model::saveHumanReadable(ofstream &of) {
 void HP_Model::saveFPKM(ofstream &of) {
    of << "# time" << endl << (clock()-startTime)/(double)CLOCKS_PER_SEC << endl; 
 	of << "# isFinished" << endl << isFinished << endl;
-	of << "# gene" << endl << gene.ID << endl;
 	of << "# numIsos" << endl << numIsos << endl;
 	of << "# isoforms" << endl;
-	for (list<HP_MRNA>::iterator ii = gene.mRNAs.begin();
-		 ii != gene.mRNAs.end(); ii++) {
+	for (vector<HP_MRNA>::iterator ii = mRNAs.begin();
+		 ii != mRNAs.end(); ii++) {
 		of << ii->ID << " ";
 	}
 	of << endl;
@@ -799,23 +745,6 @@ void HP_Model::saveBinary(ofstream &of) {
 		currSize += sizeof(int);
 	}
 	 */
-	/*
-	// gene ID
-	if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
-		of.write(outputBuffer, currSize);
-		currSize = 0;
-	}
-	*(int *) (outputBuffer+currSize) = gene.ID.size();;
-	currSize += sizeof(int);
-	for (int i = 0; i < gene.ID.size(); i++) {
-		if (currSize + 1 >= MAX_BUFFER_SIZE) {
-			of.write(outputBuffer, currSize);
-			currSize = 0;
-		}
-		outputBuffer[currSize] = gene.ID[i];
-		currSize++;
-	}
-	 */
 	// alpha
 	for (int k = 0; k < numIsos; k++) {
 		if (currSize + sizeof(double) >= MAX_BUFFER_SIZE) {
@@ -872,7 +801,7 @@ void HP_Model::saveBinary(ofstream &of) {
 
 
 void HP_Model::save() {
-	ofstream of((param.outputDir+"/"+gene.ID).c_str());
+	ofstream of((param.outputDir+"/output").c_str());
 	if (of) {
 		if (param.outputBinary) {
 			saveBinary(of);
@@ -882,7 +811,7 @@ void HP_Model::save() {
 		of.close();
 	}
    if (param.readCountFile.size() > 0) {
-      ofstream ofFPKM((param.outputDir+"/"+gene.ID+".fpkm").c_str());
+      ofstream ofFPKM((param.outputDir+"/output.fpkm").c_str());
       if (ofFPKM) {
          saveFPKM(ofFPKM);
       }

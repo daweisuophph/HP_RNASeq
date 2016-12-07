@@ -16,7 +16,7 @@ HP_Param::HP_Param() {
 	readLen = 0;
 	geneID = string();
 	gff = string();
-	bams = list<string>();
+	bams = vector<string>();
 	overhangLen = 1;
 	outputDir = string();
 	numInIters = 5;
@@ -31,8 +31,8 @@ string HP_Param::toString() const {
 	sstm << "GFF filename: " << gff << endl;
 	sstm << "Number of subjects: " << bams.size() << endl;
 	sstm << "BAM filename: ";
-	for (list<string>::const_iterator ii = bams.begin(); ii != bams.end(); ii++)
-		sstm << (*ii) << " ";
+   for (int i = 0; i < bams.size(); i++)
+      sstm << bams[i] << " ";
 	sstm << endl;
 	sstm << "Output directory: " << outputDir << endl;
    if (readCountFile.size()) sstm << "Read count file: " << readCountFile << endl;

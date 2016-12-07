@@ -6,7 +6,7 @@
 #ifndef _HP_PARAM
 #define _HP_PARAM
 #include <string>
-#include <list>
+#include <vector>
 
 using namespace std;
 
@@ -21,7 +21,7 @@ public:
 	int overhangLen; // Length of overhang constraints imposed on junctions.
 	string geneID; // Gene ID
 	string gff; //GFF filename
-	list<string> bams;
+	vector<string> bams;
 	string readCountFile; 
 	string outputDir; //output directory
 	int numOutIters; // number of interations to update alpha

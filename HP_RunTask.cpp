@@ -11,33 +11,23 @@ Run the analysis for one gene
 #include <string>
 #include <cstring>
 #include <cstdlib>
-#include <list>
+#include <vector>
 #include <boost/filesystem.hpp>
 #include "HP_Model.h"
 
 using namespace std;
 
-list<HP_Param> parseArg(int argc, char **argv)  {
+HP_Param parseArg(int argc, char **argv)  {
 	HP_Param param;
-	list<string> gffs;
-	list<string> geneIDs;
 	bool errorFlag = false;
 	// parse options
 	for (int i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "--gene-ids")==0 && i+1<argc) {
-			char *id = strtok(argv[++i], ",");
-			do {
-				geneIDs.push_back(id);
-			} while((id = strtok(NULL, ",")) != NULL);
-		} else if (strcmp(argv[i], "--gffs")==0 && i+1<argc) {
-			char *gff = strtok(argv[++i], ",");
-			do {
-				if (!boost::filesystem::exists(gff)){
-					errorFlag = true;
-					cerr << "Error: cannot access GFF file \"" << gff << "\"." << endl;
-				}
-				gffs.push_back(gff);
-			} while ((gff = strtok(NULL, ",")) != 0);
+		if (strcmp(argv[i], "--gff")==0 && i+1<argc) {
+         param.gff = string(argv[++i]);
+         if (!boost::filesystem::exists(param.gff)) {
+            errorFlag = true;
+            cerr << "Error: cannot access GFF file \"" << param.gff << "\"." << endl;
+         }
 		} else if (strcmp(argv[i], "--bams")==0 && i+1<argc) {
 			char *filename = strtok(argv[++i], ",");
 			do {
@@ -102,15 +92,7 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 			errorFlag = true;
 		}
 	}
-	if (gffs.size() != geneIDs.size()) {
-		errorFlag = true;
-		cerr << "Number of gene IDs does not match number of GFF files" << endl;
-	}
 
-	if (geneIDs.empty()) {
-		errorFlag = true;
-		cerr << "Error: Gene ID is required" << endl;
-	}
 	if (param.readLen == 0) {
 		errorFlag = true;
 		cerr << "Error: read length is required" << endl;
@@ -127,8 +109,7 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 	if (errorFlag) {
 		cerr << "Usage: " << argv[0] << " <options>" << endl;
 		cerr << "Options:" << endl;
-		cerr << "--gene-ids <gene ID1>,<gene ID2>,..." << endl;
-		cerr << "--gffs <GFF filename 1>,<GFF filename 2>,..." << endl;
+		cerr << "--gff <GFF filename>" << endl;
 		cerr << "--bams <BAM filename 1>,<BAM filename 2>,..." << endl;	
 		cerr << "--output <output directory>" << endl;
 		cerr << "--min-read <minimum number of reads>" << endl;
@@ -144,29 +125,15 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 		exit(1);
 	}
 	
-	list<HP_Param> params;
-	for (list<string>::iterator ii = geneIDs.begin(), ij = gffs.begin();
-		 ii != geneIDs.end() && ij != gffs.end();
-		 ii++, ij++) {
-		param.geneID = *ii;
-		param.gff = *ij;
-		params.push_back(param);
-	}
-	return params;
+	return param;
 }
 
 int main(int argc, char **argv) {
-	list<HP_Param> params = parseArg(argc, argv);
-	for (list<HP_Param>::iterator ii = params.begin();
-		 ii != params.end(); ii++) {
-		cerr << "------------------------------------------" << endl
-			<< "Computing:" << endl << ii->toString() << endl;
-		HP_Model model(*ii);
-		if (model.preprocessing()) {
-			model.performBVI();
-			model.save();
-		}
-	}
-	
+	HP_Param param = parseArg(argc, argv);
+   HP_Model model(param);
+   if (model.preprocessing()) {
+      model.performBVI();
+      model.save();
+   }
 	return 0;
 }

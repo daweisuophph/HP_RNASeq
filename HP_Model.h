@@ -7,11 +7,10 @@
 #define _HP_MODEL
 
 #include <string>
-#include <list>
 #include <vector>
 #include <iostream>
 #include <fstream>
-#include <map>
+#include <unordered_map>
 
 #include<time.h>
 #include <lbfgs.h>
@@ -24,14 +23,17 @@
 using namespace std;
 
 class HP_Model {
-private:
+public:
 	HP_Param param;
+
+   // mRNAs
+   vector<HP_MRNA> mRNAs;
 	//sub->[readName, reads]
-	vector<map<string, list<HP_Read> > > readsByName;
+	vector<unordered_map<string, vector<HP_Read> > > readsByName;
 	//sub->read->isoform->insertedLength
-	list<list<vector<int> > > insertedLensBySub;
+	vector<vector<vector<int> > > insertedLensBySub;
 	//sub->read->isoform->match
-	list<list<vector <bool> > > alignmentsBySub;
+	vector<vector<vector <bool> > > alignmentsBySub;
 	//log score ln P(R,lamda|isoform) or ln P(R|isoform)
 	//sub->read->isoform->score
 	vector<vector<vector<double> > > logScore;
@@ -52,9 +54,9 @@ private:
 	//sub->read->isoform->r
 	vector<vector<vector<double> > > rsBySub;
 	//isoform->(digamma(beta_k) - diagmma(sum(beta)))
-	vector<double> weights;
+	vector<vector<double> > weightsBySub;
 	//isoform->(log_score_k + weights_k)
-	vector<double> weightedScore;
+	vector<vector<double> > weightedScoreBySub;
 	//isoform->sum(digamma(beta_k)-digamma(sum(beta)))
 	vector<double> ss;
 	//isoform->diagnal_Hessian
@@ -105,7 +107,7 @@ private:
 			int ls);
 
 
-	void loadGene();
+	void loadMRNAs();
 	void loadReads();
 	void loadReadCount();
 	void computeAlignments();
@@ -120,8 +122,6 @@ private:
 	void saveBinary(ofstream &of);
 	void saveFPKM(ofstream &of);
 
-public:
-	HP_Gene gene;
 	void addRead(const HP_Read &read, int index);
 	HP_Model(const HP_Param &param);
 	~HP_Model();

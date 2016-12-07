@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
+#include <algorithm>
 
 #define MAX_LINE_SIZE 1000
 
@@ -68,32 +69,14 @@ void HP_Gff::readGFFV3(ifstream &ifs) {
 	
 	
 	//build heriachy
-	for (list<HP_Gene>::iterator ig = genes.begin();
-		 ig != genes.end(); ig++) {
-		if (mRNAByParent.find(ig->ID) != mRNAByParent.end()) {
-			ig->mRNAs = mRNAByParent[ig->ID];
-			for (list<HP_MRNA>::iterator im = ig->mRNAs.begin();
-				 im != ig->mRNAs.end(); im++) {
-				if (exonByParent.find(im->ID) != exonByParent.end()) {
-					im->exons  = exonByParent[im->ID];
-					im->exons.sort(compareByStart);
-					/*
-					for (list<Exon>::iterator ie = im->exons.begin();
-						 ie != im->exons.end(); ie++) {
-						if (cdssByParent.find(ie->ID) != cdssByParent.end()) {
-							ie->cdss = cdssByParent[ie->ID];
-						}
-					}
-					 */
-				}
-				/*
-				if (cdssByParent.find(im->ID) != cdssByParent.end()) {
-					im->cdss = cdssByParent[im->ID];
-				}
-				 */
-			}							
-		}
-	}
+	for (vector<HP_MRNA>::iterator im = mRNAs.begin();
+         im != mRNAs.end(); im++) {
+      if (exonByParent.find(im->ID) != exonByParent.end()) {
+         im->exons  = exonByParent[im->ID];
+		   sort(im->exons.begin(), im->exons.end());
+      }
+   }
+   sort(mRNAs.begin(), mRNAs.end());
 }
 
 void HP_Gff::readRecordV3(char **fields) {
@@ -166,11 +149,11 @@ void HP_Gff::readRecordV3(char **fields) {
 	} while ((attribute = strtok(NULL, ";")) != NULL);
 	
 	if (r->type[0] == 'g') {
-		genes.push_back(*(HP_Gene *)r);
+		//genes.push_back(*(HP_Gene *)r);
 	} else if (r->type[0] == 'e') {
-		if (exonByParent.find(r->parent) == exonByParent.end()) {
-			exonByParent[r->parent] = list<HP_Exon>();
-		}
+		//if (exonByParent.find(r->parent) == exonByParent.end()) {
+		//	exonByParent[r->parent] = list<HP_Exon>();
+		//}
 		exonByParent[r->parent].push_back(*(HP_Exon *)r);
 	} else if (r->type[0] == 'C') {
 		/*
@@ -180,20 +163,7 @@ void HP_Gff::readRecordV3(char **fields) {
 		cdssByParent[r->parent].push_back(*(CDS *)r);
 		 */
 	} else {
-		if (mRNAByParent.find(r->parent) == mRNAByParent.end()) {
-			mRNAByParent[r->parent] = list<HP_MRNA>();
-		}
-		mRNAByParent[r->parent].push_back(*(HP_MRNA *)r);
+      mRNAs.push_back(*(HP_MRNA *) r);
 	}
 	delete r;
 }
-
-void HP_Gff::getGenesBySeqid(map<string, list<HP_Gene> > &genesBySeqid) {
-	for (list<HP_Gene>::iterator ig = genes.begin(); ig != genes.end(); ig++) {
-		if (genesBySeqid.find(ig->seqid) == genesBySeqid.end()) {
-			genesBySeqid[ig->seqid] = list<HP_Gene>();
-		}
-		genesBySeqid[ig->seqid].push_back(*ig);
-	}
-}
-

@@ -7,7 +7,7 @@
 #ifndef _HP_GENE
 #define _HP_GENE
 
-#include <list>
+#include <vector>
 #include <string>
 #include <fstream>
 
@@ -66,6 +66,9 @@ public:
 	// constructor
 	HP_Record();
 	string toString() const;
+   bool operator<(const HP_Record &r) const {
+      return start < r.start;
+   }
 };
 
 class HP_CDS: public HP_Record {
@@ -73,21 +76,20 @@ class HP_CDS: public HP_Record {
 
 class HP_Exon: public HP_Record {
 public:
-	//list<CDS> cdss;
+	//vector<CDS> cdss;
 	string toString() const;
 };
 
 class HP_MRNA: public HP_Record {
 public:
-	list<HP_Exon> exons;
-	//list<CDS> cdss;
+	vector<HP_Exon> exons;
 	string toString() const;
 	int getLength() const;
 };
 
 class HP_Gene: public HP_Record {
 public:
-	list<HP_MRNA> mRNAs;
+	vector<HP_MRNA> mRNAs;
 	string toString() const;
 	void getBounds(int &beg, int&end) const;
 };

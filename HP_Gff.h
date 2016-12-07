@@ -9,24 +9,20 @@
 
 #include <fstream>
 #include <string>
-#include <map>
-#include <list>
+#include <unordered_map>
+#include <vector>
 #include "HP_Gene.h"
 
 using namespace std;
 
 class HP_Gff {
 private:
-	map <string, list<HP_MRNA> > mRNAByParent;
-	map <string, list<HP_Exon> > exonByParent;
-	/* ignore all cdss */
-	//map <string, list<CDS> > cdssByParent;
+	unordered_map <string, vector<HP_Exon> > exonByParent;
 	
 	void readGFFV3(ifstream &ifs);
 	void readRecordV3(char **fields);
 public:
-	list <HP_Gene> genes;
+   vector<HP_MRNA> mRNAs;
 	HP_Gff(string gffFile);
-	void getGenesBySeqid(map<string, list<HP_Gene> > &genesBySeqid);
 };
 #endif
