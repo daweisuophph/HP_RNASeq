@@ -76,7 +76,7 @@ void HP_Gff::readGFFV3(ifstream &ifs) {
 		   sort(im->exons.begin(), im->exons.end());
       }
    }
-   sort(mRNAs.begin(), mRNAs.end());
+   //sort(mRNAs.begin(), mRNAs.end());
 }
 
 void HP_Gff::readRecordV3(char **fields) {

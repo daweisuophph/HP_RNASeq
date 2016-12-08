@@ -81,8 +81,6 @@ HP_Param parseArg(int argc, char **argv)  {
 				errorFlag = true;
 				cerr << "Error: invalid number of outer iterations \"" << argv[i] << "\"." << endl;
 			}
-		} else if (strcmp(argv[i], "--read-count")==0 && i+1<argc) {
-			param.readCountFile = string(argv[++i]);
 		} else if (strcmp(argv[i], "--human-readable")==0) {
 			param.outputBinary = false;
 		} else if (strcmp(argv[i], "--newton-update")==0) {

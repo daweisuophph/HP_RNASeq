@@ -19,11 +19,10 @@
 #include "HP_Param.h"
 
 #define MAX_NEWTON_ITER 1000
-#define MAX_BUFFER_SIZE 4096
 using namespace std;
 
 class HP_Model {
-public:
+private:
 	HP_Param param;
 
    // mRNAs
@@ -34,15 +33,10 @@ public:
 	vector<vector<vector<int> > > insertedLensBySub;
 	//sub->read->isoform->match
 	vector<vector<vector <bool> > > alignmentsBySub;
-	//log score ln P(R,lamda|isoform) or ln P(R|isoform)
-	//sub->read->isoform->score
-	vector<vector<vector<double> > > logScore;
 	//num of subjects
 	int numSubs;
 	//num of isoforms
 	int numIsos;
-	//total num of reads by subject (including reads mapped on other genes)
-	vector<int> totalNumReadsBySub;
 	//num of reads by subject
 	vector<int> numReadsBySub;
 	//num of reads possible
@@ -51,24 +45,21 @@ public:
 	vector<double> alpha;
 	//sub->isoform->beta
 	vector<vector<double> >betasBySub;
-	//sub->read->isoform->r
-	vector<vector<vector<double> > > rsBySub;
 	//isoform->(digamma(beta_k) - diagmma(sum(beta)))
 	vector<vector<double> > weightsBySub;
-	//isoform->(log_score_k + weights_k)
-	vector<vector<double> > weightedScoreBySub;
 	//isoform->sum(digamma(beta_k)-digamma(sum(beta)))
 	vector<double> ss;
 	//isoform->diagnal_Hessian
 	vector<double> q;
 	//isoform->gradient
 	vector<double> g;
+   // part of the lower bound ralted to reads
+   vector<double> partBoundBySub;
 
    // start time
    clock_t startTime;
 
 	bool isFinished;
-	char *outputBuffer;
 
 	static lbfgsfloatval_t _evaluate(
 			void *instance,
@@ -106,12 +97,8 @@ public:
 			int k,
 			int ls);
 
-
 	void loadMRNAs();
-	void loadReads();
-	void loadReadCount();
-	void computeAlignments();
-	void computeLogScore();
+   void loadReadsAndComputeLogScore();
 	void initVariables();
 	void updateRs(int subInd);
 	void updateBetas(int subInd);
@@ -122,9 +109,8 @@ public:
 	void saveBinary(ofstream &of);
 	void saveFPKM(ofstream &of);
 
-	void addRead(const HP_Read &read, int index);
+public:
 	HP_Model(const HP_Param &param);
-	~HP_Model();
 	double computeLogVBLBBySub(int subInd);
 	double computeLogVBLB();
 	bool preprocessing();

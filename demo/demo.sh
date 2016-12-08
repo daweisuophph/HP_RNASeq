@@ -1,8 +1,5 @@
 DIR=..
 
-echo "Counting reads..."
-./count_reads.sh
-
 echo ""
 echo "Run N group..."
 ${DIR}/run \
@@ -12,7 +9,6 @@ ${DIR}/run \
    --paired-end 178.0 56.0 \
    --out-iter 5 \
    --in-iter 5000 \
-   --read-count readCountsN.txt \
    --output ./output/N/ \
    --human-readable
 
@@ -25,10 +21,8 @@ ${DIR}/run \
    --paired-end 178.0 56.0 \
    --out-iter 5 \
    --in-iter 5000 \
-   --read-count readCountsT.txt \
    --output ./output/T/ \
    --human-readable
-
 
 #echo "Compute KL..."
 #${DIR}/kl ./indexed ./output/T/ ./output/N/ > kl.txt

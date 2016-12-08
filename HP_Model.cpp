@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <sstream>
 #include <limits>
-#include <thread>
 #include <cmath>
 #include <omp.h>
 #include "HP_Model.h"
@@ -26,11 +25,6 @@ using namespace boost::math;
 HP_Model::HP_Model(const HP_Param &param) {
 	this->param = param;
 	readsByName = vector<unordered_map<string, vector<HP_Read> > >(param.bams.size());
-	outputBuffer = new char[MAX_BUFFER_SIZE];
-}
-
-HP_Model::~HP_Model() {
-	delete outputBuffer;
 }
 
 // load mRNAs from indexed GFF file
@@ -43,6 +37,12 @@ void HP_Model::loadMRNAs() {
 		exit(1);
 	}
 	numIsos = mRNAs.size();
+  
+	numReadsPossible.resize(numIsos);
+	for (int isoInd = 0; isoInd < numIsos; isoInd++) {
+		numReadsPossible[isoInd] = max(0, 
+            mRNAs[isoInd].getLength() - param.readLen) + 1; 
+	}
 }
 
 struct _HP_TMPSTRUCT {
@@ -50,9 +50,28 @@ struct _HP_TMPSTRUCT {
 	int index;
 };
 
-// load reads that intersect with the Gene.
-void HP_Model::loadReads() {
-   for (int subInd = 0; subInd < param.bams.size(); subInd++) {
+HP_Read loadRead(bam1_t * b) {
+   HP_Read read;
+   read.pos = b->core.pos+1; // change from 0 based to 1 based
+   read.name = bam1_qname(b);
+   read.len = b->core.l_qseq;
+   read.cigar = vector<int32_t>(b->core.n_cigar);
+   uint32_t *cigar = bam1_cigar(b);
+   for (int i = 0; i < b->core.n_cigar; i++ ) {
+      read.cigar[i] = cigar[i];
+   }
+   return read;
+}
+
+// load reads and compute log score for each isoforms
+void HP_Model::loadReadsAndComputeLogScore() {
+	numSubs = param.bams.size();
+   numReadsBySub.resize(numSubs);
+
+   #pragma omp parallel for
+   for (int subInd = 0; subInd < numSubs; subInd++) {
+      char buffer[sizeof(int)*2+sizeof(double)];
+
 		samfile_t *in = samopen(param.bams[subInd].c_str(), "rb", 0);
 		if (in == 0) {
 			cerr << "Error: cannot read BAM file \"" << 
@@ -60,86 +79,55 @@ void HP_Model::loadReads() {
 			exit(1);
 		}
 
-      bam1_t* b=bam_init1();
-      while (bam_read1(in->x.bam, b) >= 0) {
-         HP_Read read;
-         read.pos = b->core.pos+1; // change from 0 based to 1 based
-         read.name = bam1_qname(b);
-         read.len = b->core.l_qseq;
-         read.cigar = vector<int32_t>(b->core.n_cigar);
-         uint32_t *cigar = bam1_cigar(b);
-         for (int i = 0; i < b->core.n_cigar; i++ ) {
-            read.cigar[i] = cigar[i];
-         }
-	      readsByName[subInd][read.name].push_back(read);
+	   ofstream of((param.outputDir+"/tmp"+to_string(static_cast<long long>(subInd))).c_str(), ifstream::binary);
+      if (!of) {
+         cerr << "Error: cannot create tmp file" << endl;
+         exit(1);
       }
 
+	   normal_distribution<double> pInsertLen = normal_distribution<double>(param.meanInsertedLen, param.stdInsertedLen);
+
+      // for pair-end reads
+      HP_Read read1, read2;
+      bam1_t* b = bam_init1();
+      int numReads = 0;
+      while (bam_read1(in->x.bam, b) >= 0) { 
+         HP_Read read1 = loadRead(b);
+
+         if (read1.name != read2.name) {
+            read2 = read1;
+            continue;
+         }
+
+         bool isOK = false;
+         for (int isoInd = 0; isoInd < numIsos; isoInd++) {
+            if (!read1.doesAlignTo(mRNAs[isoInd])) continue;
+            if (!read2.doesAlignTo(mRNAs[isoInd])) continue;
+            if (!read1.isOverhangOK(param.overhangLen)) continue;
+            if (!read2.isOverhangOK(param.overhangLen)) continue;
+
+            isOK = true;
+
+            int iLen = HP_GetInsertedLength(read1, read2, mRNAs[isoInd]);
+            double tmp = (iLen - (double) param.meanInsertedLen) /
+               param.stdInsertedLen;
+			   double logScore = -0.5 * log(2 * M_PI)
+               - log((double)param.stdInsertedLen) - 0.5 * tmp * tmp
+					+ log(1.0) - log(numReadsPossible[isoInd]);
+
+            // save numReads, isoInd and logScore
+            *((int*) buffer) = numReads;
+            *((int*) (buffer + sizeof(int))) = isoInd;
+            *((double*) (buffer + 2 * sizeof(int))) = logScore;
+            of.write(buffer, 2 * sizeof(int) + sizeof(double));
+         }
+         if (isOK) numReads++;
+         read2 = read1;
+      }
       bam_destroy1(b);
-		samclose(in);
-	}
-}
-
-// load the total read count of each subject
-void HP_Model::loadReadCount() {
-	ifstream ifs(param.readCountFile.c_str());
-	if (ifs.is_open()) {
-		while (ifs.good()) {
-			int count;
-			ifs >> count;
-			totalNumReadsBySub.push_back(count);
-		}
-	} else {
-		if (param.readCountFile.size()) {
-			cerr << "Warning: file " << param.readCountFile << " not openned" << endl;
-		}
-		for (int i = 0; i < numSubs; i++) {
-			totalNumReadsBySub.push_back(1);
-		}
-	}
-}
-
-void HP_Model::computeLogScore() {
-
-	vector<int> isoLengths(numIsos);
-	for (int i = 0; i < mRNAs.size(); i++) {
-      isoLengths[i] = mRNAs[i].getLength(); 
-   }
-	
-	numReadsPossible.resize(numIsos);
-	for (int isoInd = 0; isoInd < numReadsPossible.size(); isoInd++) {
-		numReadsPossible[isoInd] = max(0, isoLengths[isoInd] - param.readLen) + 1; 
-	}
-
-	normal_distribution<double> pInsertLen;
-	
-	if (!param.isSingleEnd) {
-		pInsertLen = normal_distribution<double>(param.meanInsertedLen,
-												 param.stdInsertedLen);
-	}
-
-	numSubs = alignmentsBySub.size();
-	numReadsBySub = vector<int>(numSubs);
-	logScore = vector<vector<vector<double> > >(numSubs);
-
-	for (int subInd = 0; subInd < numSubs; subInd++) {
-		numReadsBySub[subInd] = alignmentsBySub[subInd].size();
-		logScore[subInd] = vector<vector<double> >(numReadsBySub[subInd]);
-		for (int readInd = 0; readInd < numReadsBySub[subInd]; readInd++) {
-			logScore[subInd][readInd] = vector<double>(numIsos);
-			for (int isoInd = 0; isoInd < numIsos; isoInd++) {
-				if (alignmentsBySub[subInd][readInd][isoInd]) {
-					double logProbFrags = 0;
-					if (!param.isSingleEnd) {
-                  double tmp = insertedLensBySub[subInd][readInd][isoInd] - (double) param.meanInsertedLen;
-						logProbFrags = -0.5*log(2*M_PI)-log((double)param.stdInsertedLen)-0.5*tmp*tmp/param.stdInsertedLen/param.stdInsertedLen;
-					}
-					logScore[subInd][readInd][isoInd] = log(1.0) - log(numReadsPossible[isoInd]) + logProbFrags;
-					
-				} else {
-					logScore[subInd][readInd][isoInd] = -numeric_limits<double>::max();
-				}
-			}
-		}
+      samclose(in);
+		of.close();
+      numReadsBySub[subInd] = numReads;
 	}
 }
 
@@ -151,47 +139,24 @@ void HP_Model::initVariables() {
 	betasBySub = vector<vector<double> >(numSubs);
 	for (int i = 0; i < numSubs; i++) {
 		betasBySub[i] = vector<double>(numIsos);
+      // init betas for this sub
+      for (int isoInd = 0; isoInd < numIsos; isoInd++) {
+         betasBySub[i][isoInd] = alpha[isoInd] 
+            + numReadsBySub[i]/(double) numIsos;
+      }
 	}
-	rsBySub = vector<vector<vector<double> > >(numSubs);
-	for (int i = 0; i < numSubs; i++) {
-		rsBySub[i] = vector<vector<double> >(numReadsBySub[i]);
-		for (int j = 0; j < numReadsBySub[i]; j++) {
-			rsBySub[i][j] = vector<double>(numIsos);
-		}
-	}
+
 	weightsBySub = vector<vector<double> > (numSubs, vector<double>(numIsos));
-	weightedScoreBySub = vector<vector<double> > (numSubs, vector<double>(numIsos));
+   partBoundBySub = vector<double> (numSubs);
+
 	ss = vector<double>(numIsos);
 	q = vector<double>(numIsos);
 	g = vector<double>(numIsos);
 }
 
-
 // load data and initialize variables
 bool HP_Model::preprocessing() {
    startTime = clock();
-	cerr << "Loading mRNAs..." << endl;
-	loadMRNAs();
-	if (mRNAs.size() <= 1) {
-		cerr << "Warning: number of isoforms is less than 2. Skipping..." << endl;
-		return false;
-	}
-	cerr << "Loading read..." << endl;
-	loadReads();
-	cerr << "Computing alignments..." << endl;
-	computeAlignments();
-	/*
-	if (alignmentsBySub.size() == 0) {
-		cerr << "Warning: numbers of aligned reads for all subjects are below the threshold: " << param.minRead << ". skippping ..." << endl;
-		return false;
-	}
-	*/
-	cerr << "Computing log score..." << endl;
-	computeLogScore();
-	cerr << "Loading read count..." << endl;
-	loadReadCount();
-	cerr << "Initializing variables..." << endl;
-	initVariables();
 	// create directory to store output
 	try {
 		boost::filesystem::create_directories(param.outputDir);
@@ -199,83 +164,18 @@ bool HP_Model::preprocessing() {
 		cerr << "Warning: cannot create dicrectory \"" << param.outputDir << "\"."<< endl;
 		return false;
 	}
+	cerr << "Loading mRNAs..." << endl;
+	loadMRNAs();
+	if (mRNAs.size() <= 1) {
+		cerr << "Warning: number of isoforms is less than 2. Skipping..." << endl;
+		return false;
+	}
+	cerr << "Loading read and computing log score..." << endl;
+	loadReadsAndComputeLogScore();
+	cerr << "Initializing variables..." << endl;
+	initVariables();
 	cerr << endl;
 	return true;
-}
-
-void HP_Model::computeAlignments() {
-	for (int ind = 0; ind < readsByName.size(); ind++) {
-		vector<vector<bool> >  alignments;
-		vector<vector<int> > insertedLens;
-		for (unordered_map<string, vector<HP_Read> >::iterator ii = readsByName[ind].begin(); ii != readsByName[ind].end(); ii++) {
-			if (param.isSingleEnd) {
-				if (ii->second.size() != 1) {
-					continue;
-				}
-			} else {
-				if (ii->second.size() != 2) {
-					continue;
-				}
-			}
-			vector<bool> alignment = vector <bool>(mRNAs.size());
-			vector<int> insertedLen = vector <int>(mRNAs.size());
-			int isoformIndex = 0;
-			bool allMismatch = true;
-			for (vector<HP_MRNA>::iterator ij = mRNAs.begin();
-				 ij != mRNAs.end(); ij++, isoformIndex++) {
-				alignment[isoformIndex] = true;
-				if (param.isSingleEnd) {
-					vector<HP_Read>::iterator read = ii->second.begin();
-					if (!read->doesAlignTo(*ij)) {
-						alignment[isoformIndex] = false;
-					}
-					if (!read->isOverhangOK(param.overhangLen)) {
-						alignment[isoformIndex] = false;
-					}
-				} else {
-					vector<HP_Read>::iterator read1 = ii->second.begin();
-					vector<HP_Read>::iterator read2 = read1;
-					read2++;
-					if (!read1->doesAlignTo(*ij) ||
-						!read2->doesAlignTo(*ij)) {
-						alignment[isoformIndex] = false;
-					}
-					if (!read1->isOverhangOK(param.overhangLen)||
-						!read2->isOverhangOK(param.overhangLen)) {
-						alignment[isoformIndex] = false;
-					}
-					if (alignment[isoformIndex]) {
-						int iLen = HP_GetInsertedLength(*read1, *read2, *ij);
-						insertedLen[isoformIndex] = iLen;
-					} else {
-						insertedLen[isoformIndex] = 0;
-					}
-				}
-				if (alignment[isoformIndex]) {
-					allMismatch = false;
-				}
-			}
-			
-			/*
-			 cout << ii->first << ": ";
-			 for (int i = 0; i < alignment.size(); i++) {
-			 cout << alignment[i] << " ";
-			 }
-			 cout << endl;
-			 */
-			/* remove reads that does not match any isoform */
-			if (!allMismatch) {
-				alignments.push_back(alignment);
-				insertedLens.push_back(insertedLen);
-			}
-		}
-		if (alignments.size() < param.minRead) {
-			cerr << "num of reads aligned is less than the limit" << endl;
-			exit(1);
-		}
-		alignmentsBySub.push_back(alignments);
-		insertedLensBySub.push_back(insertedLens);
-	}
 }
 
 static inline bool allClose(const vector<double> &a, const vector<double> &b, double thres) {
@@ -300,40 +200,6 @@ static inline double logSumExp(vector<double> &a) {
 		sum += exp(a[i]-maxA);
 	}
 	return maxA + log(sum);
-	
-}
-
-void HP_Model::updateRs(int subInd) {
-	vector<double> &betas = betasBySub[subInd];
-	vector<vector<double> > &rs = rsBySub[subInd];
-	double sumBetas = 0.0;
-	for (int l = 0; l < numIsos; l++) {
-		sumBetas += betas[l];
-	}
-	double digammaSumBetas = digamma(sumBetas);
-	for (int k = 0; k < numIsos; k++) {
-		weightsBySub[subInd][k] = digamma(betas[k]) - digammaSumBetas;
-	}
-	for (int n = 0; n < numReadsBySub[subInd]; n++) {
-		for (int k = 0; k < numIsos; k++) {
-			weightedScoreBySub[subInd][k] = logScore[subInd][n][k] + weightsBySub[subInd][k];
-		}
-		double normalizer = logSumExp(weightedScoreBySub[subInd]);
-		for (int k = 0; k < numIsos; k++) {
-			rs[n][k] = exp(weightedScoreBySub[subInd][k] - normalizer);
-		}
-	}
-}
-
-void HP_Model::updateBetas(int subInd) {
-	vector<double> &betas = betasBySub[subInd];
-	vector<vector<double> > &rs = rsBySub[subInd];
-	for (int k = 0; k < numIsos; k++) {
-		betas[k] = alpha[k];
-		for (int n = 0; n < numReadsBySub[subInd]; n++) {
-			betas[k] += rs[n][k];
-		}
-	}
 }
 
 lbfgsfloatval_t HP_Model::_evaluate(
@@ -547,16 +413,7 @@ double HP_Model::computeLogVBLBBySub(int m) {
 		logVBLB += lgamma(betasBySub[m][k]) - (betasBySub[m][k] - 1.0) *
 			(digamma(betasBySub[m][k]) - digammaSumBetas);
 
-	for (int n = 0; n < numReadsBySub[m]; n++) {
-		for (int k = 0; k < numIsos; k++) {
-			if (rsBySub[m][n][k] >= 1e-50) {
-				logVBLB += rsBySub[m][n][k] *
-					( (digamma(betasBySub[m][k]) - digammaSumBetas)
-					  + logScore[m][n][k]
-					  - log(rsBySub[m][n][k]));
-			}
-		}
-	}
+   logVBLB += partBoundBySub[m];
 
 	return logVBLB;
 }
@@ -571,47 +428,103 @@ double HP_Model::computeLogVBLB() {
 }
 
 void HP_Model::performBVI() {
-	isFinished = false;
-	for (int currOutIter = 0; currOutIter < param.numOutIters; currOutIter++) {
-		if (currOutIter) {
-			save(); // save intermediate steps
-		}
-		vector<double> oldAlpha = alpha;
-		cerr << "Outer iter " << currOutIter << "..." << endl;
-         
-      vector<thread> threads;
+   isFinished = false;
+   for (int currOutIter = 0; currOutIter < param.numOutIters; currOutIter++) {
+      if (currOutIter) {
+         save(); // save intermediate steps
+      }
+      vector<double> oldAlpha = alpha;
+      cerr << "Outer iter " << currOutIter << "..." << endl;
+
       #pragma omp parallel for
-		for (int subInd = 0; subInd < numSubs; subInd++) {
-			// init betas for this sub
-			for (int isoInd = 0; isoInd < numIsos; isoInd++) {
-				betasBySub[subInd][isoInd] = alpha[isoInd] + numReadsBySub[subInd]/(double) numIsos;
-			}
-			for (int currInIter = 0; currInIter < param.numInIters; currInIter++) {
-            vector<double> oldBetas = betasBySub[subInd];
+      for (int subInd = 0; subInd < numSubs; subInd++) {
+         vector<double> &betas = betasBySub[subInd];
+         char buffer[sizeof(int)*2+sizeof(double)];
 
-            updateRs(subInd);
-            updateBetas(subInd);
+         // inner loop
+         for (int currInIter = 0; currInIter < param.numInIters; currInIter++) {
+            vector<double> oldBetas(betasBySub[subInd]);
 
-				if (allClose(betasBySub[subInd], oldBetas, 1e-15)) {
-					cerr << "Subject " << (subInd+1) << " converged in " << (currInIter+1) << " iterations."<< endl;
-					break;
-				}
-			}
-		}
+            double sumBetas = 0.0;
+            for (int k = 0; k < numIsos; k++) {
+               sumBetas += betas[k];
+            }
+            double digammaSumBetas = digamma(sumBetas);
+            for (int k = 0; k < numIsos; k++) {
+               weightsBySub[subInd][k] = digamma(betas[k]) - digammaSumBetas;
+            }
+            for (int k = 0; k < numIsos; k++) {
+               betas[k] = alpha[k];
+            }
+            partBoundBySub[subInd] = 0.0; 
 
-		cerr << "VBLB: " << computeLogVBLB() << endl;
-		if (numSubs == 1) {
-			cerr << "Only one subject. Do not update alpha." << endl;
-			break;
-		}
-		updateAlpha();
-		if (allClose(oldAlpha, alpha, 1e-6)) {
-			cerr << "Alpha converge in " << currOutIter << " iterations." << endl;
-			break;
-		}
-	}
-	isFinished = true;
-	cerr << "Finished succussfull." << endl;
+            ifstream is((param.outputDir+"/tmp"+to_string(static_cast<long long>(subInd))).c_str(), ifstream::binary);
+
+            if (!is) {
+               cerr << "Error: cannot read tmp file" << endl;
+               exit(1);
+            }
+
+            int lastN = -1;
+            vector<int> isoInds;
+            vector<double> weightedScores;
+            while (is.good()) {
+               int n, k;
+               double logScore, weightedScore;
+               is.read(buffer, sizeof(int) * 2 + sizeof(double));
+               n = *(int *) buffer;
+               k = *(int *) (buffer + sizeof(int));
+               logScore = *(double *) (buffer + 2*sizeof(int));
+               weightedScore = logScore + weightsBySub[subInd][k]; 
+               if (n == lastN) {
+                  isoInds.push_back(k);
+                  weightedScores.push_back(weightedScore);
+               }
+
+               if ((!is.good() || n != lastN) && isoInds.size() > 0) {
+                  double normalizer = logSumExp(weightedScores);
+
+                  for (int l = 0; l < isoInds.size(); l++) {
+                     double r = exp(weightedScores[l] - normalizer);
+                     partBoundBySub[subInd] += r * 
+                        ((digamma(betas[isoInds[l]]) - digammaSumBetas)
+                        + logScore - log(r));
+                     betas[isoInds[l]] += r;
+                  }
+
+                  if (n != lastN) {
+                     isoInds.clear();
+                     weightedScores.clear();
+                     isoInds.push_back(k);
+                     weightedScores.push_back(weightedScore);
+                  }
+               }
+
+               lastN = n;
+            }
+
+            is.close();
+
+            if (allClose(betasBySub[subInd], oldBetas, 1e-15)) {
+               cerr << "Subject " << (subInd+1) << " converged in " << (currInIter+1) << " iterations."<< endl;
+               break;
+            }
+         }
+      }
+
+      cerr << "VBLB: " << computeLogVBLB() << endl;
+      if (numSubs == 1) {
+         cerr << "Only one subject. Do not update alpha." << endl;
+         break;
+      }
+      updateAlpha();
+      if (allClose(oldAlpha, alpha, 1e-6)) {
+         cerr << "Alpha converge in " << currOutIter << " iterations." << endl;
+         break;
+      }
+   }
+   isFinished = true;
+   cerr << "Finished succussfull." << endl;
 }
 
 void HP_Model::saveHumanReadable(ofstream &of) {
@@ -624,10 +537,6 @@ void HP_Model::saveHumanReadable(ofstream &of) {
 	}
 	of << endl;
 	of << "# numSubs" << endl << numSubs << endl;
-	of << "# totalNumReadsBySub" << endl;
-	for (int m = 0; m < numSubs; m++ ){
-		of << totalNumReadsBySub[m] << " ";
-	}
 	of << endl;
 	of <<"# numReadsBySub" << endl;
 	for (int m = 0; m < numSubs; m++ ){
@@ -646,28 +555,6 @@ void HP_Model::saveHumanReadable(ofstream &of) {
 		}
 		of << endl;
 	}
-   /*
-	of << "# rs" << endl;
-	for (int m = 0; m < numSubs; m++) {
-		for (int n = 0; n < numReadsBySub[m]; n++) {
-			for (int k = 0; k < numIsos; k++) {
-				of << rsBySub[m][n][k] << ",";
-			}
-			of << ";";
-		}
-		of << endl;
-	}
-	of << "# log score" << endl;
-	for (int m = 0; m < numSubs; m++) {
-		for (int n = 0; n < numReadsBySub[m]; n++) {
-			for (int k = 0; k < numIsos; k++) {
-				of << logScore[m][n][k] << ",";
-			}
-			of << ";";
-		}
-		of << endl;
-	}
-   */
 	of << "# done";
 }
 
@@ -683,10 +570,6 @@ void HP_Model::saveFPKM(ofstream &of) {
 	}
 	of << endl;
 	of << "# numSubs" << endl << numSubs << endl;
-	of << "# totalNumReadsBySub" << endl;
-	for (int m = 0; m < numSubs; m++ ){
-		of << totalNumReadsBySub[m] << " ";
-	}
 	of << endl;
 	of << "# numReadsBySub" << endl;
 	for (int m = 0; m < numSubs; m++ ){
@@ -700,7 +583,7 @@ void HP_Model::saveFPKM(ofstream &of) {
 			betaSum += betasBySub[m][k];
 		}
 		for (int k = 0; k < numIsos; k++) {
-			of << betasBySub[m][k] / betaSum * numReadsBySub[m] / numReadsPossible[k] / totalNumReadsBySub[m] * 1.0e9 << " ";
+			of << betasBySub[m][k] / betaSum / numReadsPossible[k] * 1.0e9 << " ";
 		}
 		of << endl;
 	}
@@ -709,93 +592,31 @@ void HP_Model::saveFPKM(ofstream &of) {
 
 
 void HP_Model::saveBinary(ofstream &of) {
-	int currSize = 0;
+   char buffer[100];
 	// isFinished
-	if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
-		of.write(outputBuffer, currSize);
-		currSize = 0;
-	}
-	*(bool *) (outputBuffer+currSize) = isFinished;
-	currSize += sizeof(bool);
+	*(bool *) buffer = isFinished;
+   of.write(buffer, sizeof(bool));
 	
 	// numOfIsos
-	if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
-		of.write(outputBuffer, currSize);
-		currSize = 0;
-	}
-	*(int *) (outputBuffer+currSize) = numIsos;
-	currSize += sizeof(int);
+	*(int *) buffer = numIsos;
+	of.write(buffer, sizeof(int));
 	
 	// numOfSubs
-	if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
-		of.write(outputBuffer, currSize);
-		currSize = 0;
-	}
-	*(int *) (outputBuffer+currSize) = numSubs;
-	currSize += sizeof(int);
+	*(int *) buffer = numSubs;
+   of.write(buffer, sizeof(int));
 	
-	/*
-	// numReads
-	for (int m = 0; m < numSubs; m++) {
-		if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
-			of.write(outputBuffer, currSize);
-			currSize = 0;
-		}
-		*(int *) (outputBuffer+currSize) = numReadsBySub[m];
-		currSize += sizeof(int);
-	}
-	 */
 	// alpha
 	for (int k = 0; k < numIsos; k++) {
-		if (currSize + sizeof(double) >= MAX_BUFFER_SIZE) {
-			of.write(outputBuffer, currSize);
-			currSize = 0;
-		}
-		*(double *) (outputBuffer+currSize) = alpha[k];
-		currSize += sizeof(double);
+		*(double *) buffer = alpha[k];
+      of.write(buffer, sizeof(double));
 	}
 	
 	// betas
 	for (int m = 0; m < numSubs; m++) {
 		for (int k = 0; k < numIsos; k++) {
-			if (currSize + sizeof(double) >= MAX_BUFFER_SIZE) {
-				of.write(outputBuffer, currSize);
-				currSize = 0;
-			}
-			*(double *) (outputBuffer+currSize) = betasBySub[m][k];
-			currSize += sizeof(double);
+			*(double *) buffer = betasBySub[m][k];
+         of.write(buffer, sizeof(double));
 		}
-	}
-	/*
-	// rs
-	for (int m = 0; m < numSubs; m++) {
-		for (int n = 0; n < numReadsBySub[m]; n++) {
-			for (int k = 0; k < numIsos; k++) {
-				if (currSize + sizeof(double) >= MAX_BUFFER_SIZE) {
-					of.write(outputBuffer, currSize);
-					currSize = 0;
-				}
-				*(double *) (outputBuffer+currSize) = rsBySub[m][n][k];
-				currSize += sizeof(double);
-			}
-		}
-	}
-	// log score
-	for (int m = 0; m < numSubs; m++) {
-		for (int n = 0; n < numReadsBySub[m]; n++) {
-			for (int k = 0; k < numIsos; k++) {
-				if (currSize + sizeof(double) >= MAX_BUFFER_SIZE) {
-					of.write(outputBuffer, currSize);
-					currSize = 0;
-				}
-				*(double *) (outputBuffer+currSize) = logScore[m][n][k];
-				currSize += sizeof(double);
-			}
-		}
-	}
-	 */
-	if (currSize) {
-		of.write(outputBuffer, currSize);
 	}
 }
 
@@ -810,13 +631,8 @@ void HP_Model::save() {
 		}
 		of.close();
 	}
-   if (param.readCountFile.size() > 0) {
-      ofstream ofFPKM((param.outputDir+"/output.fpkm").c_str());
-      if (ofFPKM) {
-         saveFPKM(ofFPKM);
-      }
+   ofstream ofFPKM((param.outputDir+"/output.fpkm").c_str());
+   if (ofFPKM) {
+      saveFPKM(ofFPKM);
    }
 }
-
-
-
