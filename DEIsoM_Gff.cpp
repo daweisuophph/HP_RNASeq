@@ -3,7 +3,7 @@
  Date: June 22, 2016
  Version: 1.1v
  */
-#include "HP_Gff.h"
+#include "DEIsoM_Gff.h"
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
@@ -13,7 +13,7 @@
 
 using namespace std;
 
-HP_Gff::HP_Gff(string gffFile) {
+DEIsoM_Gff::DEIsoM_Gff(string gffFile) {
 	ifstream ifs(gffFile.c_str());
 	if (!ifs) {
 		cerr << "Error: the GFF file \"" << gffFile << "\" cannot be opened." << endl;
@@ -39,11 +39,11 @@ HP_Gff::HP_Gff(string gffFile) {
 	ifs.close();
 }
 
-static bool compareByStart(HP_Exon e1, HP_Exon e2) {
+static bool compareByStart(DEIsoM_Exon e1, DEIsoM_Exon e2) {
 	return (e1.start < e2.start);
 }
 
-void HP_Gff::readGFFV3(ifstream &ifs) {
+void DEIsoM_Gff::readGFFV3(ifstream &ifs) {
 	int lineNumber = 1;
 	char *line = new char[MAX_LINE_SIZE];
 	while (!ifs.eof()) {
@@ -69,7 +69,7 @@ void HP_Gff::readGFFV3(ifstream &ifs) {
 	
 	
 	//build heriachy
-	for (vector<HP_MRNA>::iterator im = mRNAs.begin();
+	for (vector<DEIsoM_MRNA>::iterator im = mRNAs.begin();
          im != mRNAs.end(); im++) {
       if (exonByParent.find(im->ID) != exonByParent.end()) {
          im->exons  = exonByParent[im->ID];
@@ -79,10 +79,10 @@ void HP_Gff::readGFFV3(ifstream &ifs) {
    sort(mRNAs.begin(), mRNAs.end());
 }
 
-void HP_Gff::readRecordV3(char **fields) {
-	HP_Record *r = 0;
+void DEIsoM_Gff::readRecordV3(char **fields) {
+	DEIsoM_Record *r = 0;
 	if (strcmp(fields[2], "gene") == 0) {
-		r = new HP_Gene();
+		r = new DEIsoM_Gene();
 	} else if (strcmp(fields[2], "transcript") == 0 ||
 				strcmp(fields[2], "aberrant_processed_transcript") == 0 ||
 				strcmp(fields[2], "nc_primary_transcript") == 0 ||
@@ -97,11 +97,11 @@ void HP_Gff::readRecordV3(char **fields) {
 				strcmp(fields[2], "lincRNA") == 0 ||
 				strcmp(fields[2], "ncRNA") == 0 ||
 			   strcmp(fields[2], "mRNA") == 0) {
-		r = new HP_MRNA();
+		r = new DEIsoM_MRNA();
 	} else if (strcmp(fields[2], "exon") == 0) {
-		r = new HP_Exon();
+		r = new DEIsoM_Exon();
 	} else if (strcmp(fields[2], "CDS") == 0) {
-		r = new HP_CDS();
+		r = new DEIsoM_CDS();
 	} else {
 		return;
 	}
@@ -149,12 +149,12 @@ void HP_Gff::readRecordV3(char **fields) {
 	} while ((attribute = strtok(NULL, ";")) != NULL);
 	
 	if (r->type[0] == 'g') {
-		//genes.push_back(*(HP_Gene *)r);
+		//genes.push_back(*(DEIsoM_Gene *)r);
 	} else if (r->type[0] == 'e') {
 		//if (exonByParent.find(r->parent) == exonByParent.end()) {
-		//	exonByParent[r->parent] = list<HP_Exon>();
+		//	exonByParent[r->parent] = list<DEIsoM_Exon>();
 		//}
-		exonByParent[r->parent].push_back(*(HP_Exon *)r);
+		exonByParent[r->parent].push_back(*(DEIsoM_Exon *)r);
 	} else if (r->type[0] == 'C') {
 		/*
 		if (cdssByParent.find(r->parent) == cdssByParent.end()) {
@@ -163,7 +163,7 @@ void HP_Gff::readRecordV3(char **fields) {
 		cdssByParent[r->parent].push_back(*(CDS *)r);
 		 */
 	} else {
-      mRNAs.push_back(*(HP_MRNA *) r);
+      mRNAs.push_back(*(DEIsoM_MRNA *) r);
 	}
 	delete r;
 }

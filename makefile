@@ -25,38 +25,38 @@ INCLUDE=${BOOST_INCLUDE} ${SAMTOOLS_INCLUDE} ${HTSLIB_INCLUDE} ${LBFGS_INCLUDE}
 LIB=${BOOST_LIB} ${SAMTOOLS_LIB} ${HTSLIB_LIB} ${BOOST_OPTION} ${SAMTOOLS_OPTION} ${HTSLIB_OPTION}
 
 
-all: run
+all: deisom
 
-run: HP_Model.o HP_RunTask.o HP_Gene.o HP_Gff.o HP_Read.o HP_Param.o asa121.o
-	${LIBTOOL} ${LINK_OPTION} ${CC} ${CC_OPTION} -o run HP_Model.o HP_RunTask.o HP_Gene.o HP_Gff.o HP_Read.o HP_Param.o asa121.o ${LBFGS_LA} ${LIB}
+deisom: DEIsoM_Model.o DEIsoM_RunTask.o DEIsoM_Gene.o DEIsoM_Gff.o DEIsoM_Read.o DEIsoM_Param.o asa121.o
+	${LIBTOOL} ${LINK_OPTION} ${CC} ${CC_OPTION} -o deisom DEIsoM_Model.o DEIsoM_RunTask.o DEIsoM_Gene.o DEIsoM_Gff.o DEIsoM_Read.o DEIsoM_Param.o asa121.o ${LBFGS_LA} ${LIB}
 
-estimate: HP_Estimate.o HP_Read.o HP_Gene.o HP_Gff.o
-	${CC} ${CC_OPTION} -o estimate HP_Estimate.o HP_Read.o HP_Gene.o HP_Gff.o ${LIB}
+estimate: DEIsoM_Estimate.o DEIsoM_Read.o DEIsoM_Gene.o DEIsoM_Gff.o
+	${CC} ${CC_OPTION} -o estimate DEIsoM_Estimate.o DEIsoM_Read.o DEIsoM_Gene.o DEIsoM_Gff.o ${LIB}
 
-HP_Model.o: HP_Model.cpp HP_Model.h
-	${CC} ${CC_OPTION} -c -o HP_Model.o HP_Model.cpp ${INCLUDE}
+DEIsoM_Model.o: DEIsoM_Model.cpp DEIsoM_Model.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_Model.o DEIsoM_Model.cpp ${INCLUDE}
 
-HP_RunTask.o: HP_RunTask.cpp HP_Model.h
-	${CC} ${CC_OPTION} -c -o HP_RunTask.o HP_RunTask.cpp ${INCLUDE}
+DEIsoM_RunTask.o: DEIsoM_RunTask.cpp DEIsoM_Model.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_RunTask.o DEIsoM_RunTask.cpp ${INCLUDE}
 
-HP_Gene.o: HP_Gene.cpp HP_Gene.h
-	${CC} ${CC_OPTION} -c -o HP_Gene.o HP_Gene.cpp
+DEIsoM_Gene.o: DEIsoM_Gene.cpp DEIsoM_Gene.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_Gene.o DEIsoM_Gene.cpp
 
-HP_Param.o: HP_Param.cpp HP_Param.h
-	${CC} ${CC_OPTION} -c -o HP_Param.o HP_Param.cpp
+DEIsoM_Param.o: DEIsoM_Param.cpp DEIsoM_Param.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_Param.o DEIsoM_Param.cpp
 
-HP_Gff.o: HP_Gff.cpp HP_Gff.h
-	${CC} ${CC_OPTION} -c -o HP_Gff.o HP_Gff.cpp
+DEIsoM_Gff.o: DEIsoM_Gff.cpp DEIsoM_Gff.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_Gff.o DEIsoM_Gff.cpp
 
-HP_Read.o: HP_Read.cpp HP_Read.h
-	${CC} ${CC_OPTION} -c -o HP_Read.o HP_Read.cpp ${BOOST_INCLUDE}
+DEIsoM_Read.o: DEIsoM_Read.cpp DEIsoM_Read.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_Read.o DEIsoM_Read.cpp ${BOOST_INCLUDE}
 
-HP_Estimate.o: HP_Estimate.cpp
-	${CC} ${CC_OPTION} -c -o HP_Estimate.o HP_Estimate.cpp ${INCLUDE}
+DEIsoM_Estimate.o: DEIsoM_Estimate.cpp
+	${CC} ${CC_OPTION} -c -o DEIsoM_Estimate.o DEIsoM_Estimate.cpp ${INCLUDE}
 
 asa121.o: asa121.h asa121.cpp
 	${CC} ${CC_OPTION} -c -o asa121.o asa121.cpp
 
 clean:
 	rm -f *.o
-	rm -f run
+	rm -f deisom

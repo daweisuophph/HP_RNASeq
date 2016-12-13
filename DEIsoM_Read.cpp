@@ -4,11 +4,11 @@
  Version: 1.0v
  */
 #include <sstream>
-#include "HP_Read.h"
+#include "DEIsoM_Read.h"
 
 using namespace std;
 
-HP_Read::HP_Read() {
+DEIsoM_Read::DEIsoM_Read() {
 	pos = -1;
 	name = string();
 	len = 0;
@@ -17,7 +17,7 @@ HP_Read::HP_Read() {
    hi = 0;
 }
 
-string HP_Read::toString() const{
+string DEIsoM_Read::toString() const{
 	stringstream sstm;
 	sstm << name << " " << pos << " " << len  << " ";
 	for (int i = 0; i < cigar.size(); i++) {
@@ -31,11 +31,11 @@ string HP_Read::toString() const{
 	return sstm.str();
 }
 
-bool HP_Read::doesAlignTo(const HP_MRNA &mRNA) const {
+bool DEIsoM_Read::doesAlignTo(const DEIsoM_MRNA &mRNA) const {
 	int leftLen = len;
 	int curr = pos;
 	vector<int32_t> isoCigar;
-	for (vector<HP_Exon>::const_iterator ii = mRNA.exons.begin();
+	for (vector<DEIsoM_Exon>::const_iterator ii = mRNA.exons.begin();
 		 ii != mRNA.exons.end() && leftLen > 0; ii++) {
 		if (curr < ii->start) {
 			int count = ii->start - curr;
@@ -72,7 +72,7 @@ bool HP_Read::doesAlignTo(const HP_MRNA &mRNA) const {
 	return true;
 }
 
-bool HP_Read::isOverhangOK(int overhangLen) const {
+bool DEIsoM_Read::isOverhangOK(int overhangLen) const {
 	for (int i = 0; i < cigar.size(); i++) {
 		int op = (cigar[i] & 0xF);
 		if (op == '0') {
@@ -84,9 +84,9 @@ bool HP_Read::isOverhangOK(int overhangLen) const {
 	return true;
 }
 
-int HP_Read::getRelativePosOn(const HP_MRNA &mRNA) const{
+int DEIsoM_Read::getRelativePosOn(const DEIsoM_MRNA &mRNA) const{
 	int relPos = 1; //1-based
-	for (vector<HP_Exon>::const_iterator ii = mRNA.exons.begin();
+	for (vector<DEIsoM_Exon>::const_iterator ii = mRNA.exons.begin();
 		 ii != mRNA.exons.end(); ii++) {
 		if (pos >= ii->start && pos <= ii->end) {
 			relPos += pos - ii->start;
@@ -100,7 +100,7 @@ int HP_Read::getRelativePosOn(const HP_MRNA &mRNA) const{
 	return relPos;
 }
 
-int HP_GetInsertedLength(const HP_Read &read1, const HP_Read &read2, const HP_MRNA &mRNA) {
+int DEIsoM_GetInsertedLength(const DEIsoM_Read &read1, const DEIsoM_Read &read2, const DEIsoM_MRNA &mRNA) {
 	int relPos1 = read1.getRelativePosOn(mRNA);
 	int relPos2 = read2.getRelativePosOn(mRNA);
 	return abs(relPos1-relPos2)+read1.len;

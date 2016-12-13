@@ -13,12 +13,12 @@ Run the analysis for one gene
 #include <cstdlib>
 #include <vector>
 #include <boost/filesystem.hpp>
-#include "HP_Model.h"
+#include "DEIsoM_Model.h"
 
 using namespace std;
 
-HP_Param parseArg(int argc, char **argv)  {
-	HP_Param param;
+DEIsoM_Param parseArg(int argc, char **argv)  {
+	DEIsoM_Param param;
 	bool errorFlag = false;
 	// parse options
 	for (int i = 1; i < argc; i++) {
@@ -127,8 +127,8 @@ HP_Param parseArg(int argc, char **argv)  {
 }
 
 int main(int argc, char **argv) {
-	HP_Param param = parseArg(argc, argv);
-   HP_Model model(param);
+	DEIsoM_Param param = parseArg(argc, argv);
+   DEIsoM_Model model(param);
    if (model.preprocessing()) {
       model.performBVI();
       model.save();

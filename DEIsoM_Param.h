@@ -3,14 +3,14 @@
  Date: May 8, 2013
  Version: 1.0v
  */
-#ifndef _HP_PARAM
-#define _HP_PARAM
+#ifndef _DEIsoM_PARAM
+#define _DEIsoM_PARAM
 #include <string>
 #include <vector>
 
 using namespace std;
 
-class HP_Param {
+class DEIsoM_Param {
 public:
 	bool isSingleEnd; // single end or pair end
 	double meanInsertedLen; // mean of inserted Length
@@ -28,7 +28,7 @@ public:
 	int numInIters; // number of interations to update hidden variables
 	bool outputBinary; //whether to output in binary format
 	
-	HP_Param();
+	DEIsoM_Param();
 	string toString() const;
 };
 

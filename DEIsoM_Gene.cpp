@@ -3,12 +3,12 @@
  Date: May 8, 2013
  Version: 1.0v
  */
-#include "HP_Gene.h"
+#include "DEIsoM_Gene.h"
 #include <sstream>
 
 using namespace std;
 
-HP_Record::HP_Record() {
+DEIsoM_Record::DEIsoM_Record() {
 	seqid = string();
 	source = string();
 	type = string();
@@ -22,7 +22,7 @@ HP_Record::HP_Record() {
     parent = string();
 }
 
-string HP_Record::toString() const {
+string DEIsoM_Record::toString() const {
 	stringstream sstm;
 	sstm << seqid << "\t" << source << "\t" << type << "\t" << start << "\t" << end << "\t";
 	if (score < 0) {
@@ -59,33 +59,33 @@ string HP_Record::toString() const {
 	return sstm.str();
 }
 
-string HP_Exon::toString() const {
+string DEIsoM_Exon::toString() const {
 	stringstream sstm;
-	sstm << HP_Record::toString() << endl;
+	sstm << DEIsoM_Record::toString() << endl;
 	return sstm.str();
 }
 
-string HP_MRNA::toString() const{
+string DEIsoM_MRNA::toString() const{
 	stringstream sstm;
-	sstm << HP_Record::toString() << endl;
-	for (vector<HP_Exon>::const_iterator ii = exons.begin(); ii != exons.end(); ii++) {
+	sstm << DEIsoM_Record::toString() << endl;
+	for (vector<DEIsoM_Exon>::const_iterator ii = exons.begin(); ii != exons.end(); ii++) {
 		sstm << (*ii).toString();
 	}
 	return sstm.str();
 }
 
-int HP_MRNA::getLength() const {
+int DEIsoM_MRNA::getLength() const {
 	int len = 0;
-	for (vector<HP_Exon>::const_iterator ii = exons.begin(); ii != exons.end(); ii++) {
+	for (vector<DEIsoM_Exon>::const_iterator ii = exons.begin(); ii != exons.end(); ii++) {
 		len += ii->end-ii->start+1;
 	}
 	return len;
 }
 
-string HP_Gene::toString() const{
+string DEIsoM_Gene::toString() const{
 	stringstream sstm;
-	sstm << HP_Record::toString() << endl;
-	for (vector<HP_MRNA>::const_iterator ii = mRNAs.begin(); ii != mRNAs.end(); ii++) {
+	sstm << DEIsoM_Record::toString() << endl;
+	for (vector<DEIsoM_MRNA>::const_iterator ii = mRNAs.begin(); ii != mRNAs.end(); ii++) {
 		sstm << (*ii).toString();
 	}
 	return sstm.str();
@@ -93,10 +93,10 @@ string HP_Gene::toString() const{
 
 // return the possible bounds for this gene
 // beg and end are 1 based
-void HP_Gene::getBounds(int &beg, int &end) const {
+void DEIsoM_Gene::getBounds(int &beg, int &end) const {
 	beg = -1;
 	end = -1;
-	for (vector<HP_MRNA>::const_iterator ii = mRNAs.begin();
+	for (vector<DEIsoM_MRNA>::const_iterator ii = mRNAs.begin();
 		 ii != mRNAs.end(); ii++) {
 		if (beg == -1 || ii->start < beg) {
 			beg = ii->start;

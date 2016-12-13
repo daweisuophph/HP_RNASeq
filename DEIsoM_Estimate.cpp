@@ -3,9 +3,9 @@
  Date: May 8, 2013
  Version: 1.0v
  */
-#include "HP_Read.h"
-#include "HP_Gff.h"
-#include "HP_Gene.h"
+#include "DEIsoM_Read.h"
+#include "DEIsoM_Gff.h"
+#include "DEIsoM_Gene.h"
 #include "sam.h"
 #include <iostream>
 #include <list>
@@ -18,9 +18,9 @@
 using namespace std;
 
 static int fetch_func(const bam1_t *b, void *data) {
-    map<string, list<HP_Read> > &readsByName = *(map<string, list<HP_Read> >*)data;
+    map<string, list<DEIsoM_Read> > &readsByName = *(map<string, list<DEIsoM_Read> >*)data;
 	
-	HP_Read read;
+	DEIsoM_Read read;
 	read.pos = b->core.pos+1; // change from 0 based to 1 based
 	read.name = bam1_qname(b);
 	read.len = b->core.l_qseq;
@@ -30,7 +30,7 @@ static int fetch_func(const bam1_t *b, void *data) {
 		read.cigar[i] = cigar[i];
 	}
 	if (readsByName.find(read.name) == readsByName.end()) {
-		readsByName[read.name] = list<HP_Read>();
+		readsByName[read.name] = list<DEIsoM_Read>();
 	}
 	readsByName[read.name].push_back(read);
 	
@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
 		cerr << "Usage: " << argv[0] << " <GFF> <bam 1> <bam 2> ..." << endl;
 		exit(1);
 	}
-	HP_Gff gff = HP_Gff(string(argv[1]));
+	DEIsoM_Gff gff = DEIsoM_Gff(string(argv[1]));
 	
 	list<int> insertedLengths;
 	for (int i = 2; i < argc; i++) {
@@ -53,12 +53,12 @@ int main(int argc, char **argv) {
 		}
 		
 		int count = 0;
-		for (list<HP_Gene>::iterator ii = gff.genes.begin();
+		for (list<DEIsoM_Gene>::iterator ii = gff.genes.begin();
 			 ii != gff.genes.end(); ii++, count++) {
 			if (count % 10000 == 0) {
 				cerr << "finished " << count << " genes." << endl;
 			}
-			map<string, list<HP_Read> >readsByName;
+			map<string, list<DEIsoM_Read> >readsByName;
 			int beg, end;
 			ii->getBounds(beg, end);
 			stringstream sstm;
@@ -81,17 +81,17 @@ int main(int argc, char **argv) {
 			bam_fetch(in->x.bam, idx, ref, newBeg, newEnd, &readsByName, fetch_func);
 			bam_index_destroy(idx);
 			
-			for (list<HP_MRNA>::iterator ik = ii->mRNAs.begin();
+			for (list<DEIsoM_MRNA>::iterator ik = ii->mRNAs.begin();
 				 ik != ii->mRNAs.end(); ik++) {
-				for (map<string, list<HP_Read> >::iterator ij = readsByName.begin();
+				for (map<string, list<DEIsoM_Read> >::iterator ij = readsByName.begin();
 					 ij != readsByName.end(); ij++) {
 					if (ij->second.size() == 2) {
-						list<HP_Read>::iterator read1 = ij->second.begin();
-						list<HP_Read>::iterator read2 = ij->second.begin();
+						list<DEIsoM_Read>::iterator read1 = ij->second.begin();
+						list<DEIsoM_Read>::iterator read2 = ij->second.begin();
 						read2++;
 						if (read1->doesAlignTo(*ik) &&
 							read2->doesAlignTo(*ik)) {
-							int iLen = HP_GetInsertedLength(*read1, *read2, *ik);
+							int iLen = DEIsoM_GetInsertedLength(*read1, *read2, *ik);
 							insertedLengths.push_back(iLen);
 						}
 					}

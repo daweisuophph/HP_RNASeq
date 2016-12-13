@@ -3,8 +3,8 @@
  Date: May 8, 2013
  Version: 1.0v
  */
-#ifndef _HP_MODEL
-#define _HP_MODEL
+#ifndef _DEIsoM_MODEL
+#define _DEIsoM_MODEL
 
 #include <string>
 #include <vector>
@@ -14,23 +14,23 @@
 
 #include<time.h>
 #include <lbfgs.h>
-#include "HP_Read.h"
-#include "HP_Gene.h"
-#include "HP_Param.h"
+#include "DEIsoM_Read.h"
+#include "DEIsoM_Gene.h"
+#include "DEIsoM_Param.h"
 
 #define MAX_NEWTON_ITER 1000
 using namespace std;
 
-class HP_Model {
+class DEIsoM_Model {
 private:
-	HP_Param param;
+	DEIsoM_Param param;
 
    // mRNAs
-   vector<HP_MRNA> mRNAs;
+   vector<DEIsoM_MRNA> mRNAs;
    // max end before a given index
    vector<int> maxEnd;
 	//sub->[readName, reads]
-	vector<unordered_map<string, vector<HP_Read> > > readsByName;
+	vector<unordered_map<string, vector<DEIsoM_Read> > > readsByName;
 	//sub->read->isoform->insertedLength
 	vector<vector<vector<int> > > insertedLensBySub;
 	//sub->read->isoform->match
@@ -114,7 +114,7 @@ private:
 	void saveFPKM(ofstream &of);
 
 public:
-	HP_Model(const HP_Param &param);
+	DEIsoM_Model(const DEIsoM_Param &param);
 	double computeLogVBLBBySub(int subInd);
 	double computeLogVBLB();
 	bool preprocessing();

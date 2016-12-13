@@ -4,8 +4,8 @@
  Version: 1.0v
  */
 
-#ifndef _HP_GENE
-#define _HP_GENE
+#ifndef _DEIsoM_GENE
+#define _DEIsoM_GENE
 
 #include <vector>
 #include <string>
@@ -13,7 +13,7 @@
 
 using namespace std;
 
-class HP_Record {
+class DEIsoM_Record {
 public:
 	/*
 	The ID of the landmark used to establish the coordinate system for the current feature. IDs may contain any characters, but must escape any characters not in the set [a-zA-Z0-9.:^*$@!+_?-|]. In particular, IDs may not contain unescaped whitespace and must not begin with an unescaped ">".
@@ -64,32 +64,32 @@ public:
 	string parent;
 
 	// constructor
-	HP_Record();
+	DEIsoM_Record();
 	string toString() const;
-   bool operator<(const HP_Record &r) const {
+   bool operator<(const DEIsoM_Record &r) const {
       return start < r.start;
    }
 };
 
-class HP_CDS: public HP_Record {
+class DEIsoM_CDS: public DEIsoM_Record {
 };
 
-class HP_Exon: public HP_Record {
+class DEIsoM_Exon: public DEIsoM_Record {
 public:
 	//vector<CDS> cdss;
 	string toString() const;
 };
 
-class HP_MRNA: public HP_Record {
+class DEIsoM_MRNA: public DEIsoM_Record {
 public:
-	vector<HP_Exon> exons;
+	vector<DEIsoM_Exon> exons;
 	string toString() const;
 	int getLength() const;
 };
 
-class HP_Gene: public HP_Record {
+class DEIsoM_Gene: public DEIsoM_Record {
 public:
-	vector<HP_MRNA> mRNAs;
+	vector<DEIsoM_MRNA> mRNAs;
 	string toString() const;
 	void getBounds(int &beg, int&end) const;
 };
