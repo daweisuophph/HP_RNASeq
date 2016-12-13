@@ -13,6 +13,8 @@ HP_Read::HP_Read() {
 	name = string();
 	len = 0;
 	cigar = vector<int32_t>();
+   pnext = -1;
+   hi = 0;
 }
 
 string HP_Read::toString() const{
@@ -72,7 +74,7 @@ bool HP_Read::doesAlignTo(const HP_MRNA &mRNA) const {
 
 bool HP_Read::isOverhangOK(int overhangLen) const {
 	for (int i = 0; i < cigar.size(); i++) {
-		int op = cigar[i] & 0xF;
+		int op = (cigar[i] & 0xF);
 		if (op == '0') {
 			if ((cigar[i] >> 4) < overhangLen) {
 				return false;

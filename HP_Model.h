@@ -27,6 +27,8 @@ private:
 
    // mRNAs
    vector<HP_MRNA> mRNAs;
+   // max end before a given index
+   vector<int> maxEnd;
 	//sub->[readName, reads]
 	vector<unordered_map<string, vector<HP_Read> > > readsByName;
 	//sub->read->isoform->insertedLength
@@ -55,6 +57,8 @@ private:
 	vector<double> g;
    // part of the lower bound ralted to reads
    vector<double> partBoundBySub;
+   // param for lbfgs
+   lbfgs_parameter_t lbfgsParam;
 
    // start time
    clock_t startTime;

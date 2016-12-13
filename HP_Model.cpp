@@ -25,6 +25,8 @@ using namespace boost::math;
 HP_Model::HP_Model(const HP_Param &param) {
 	this->param = param;
 	readsByName = vector<unordered_map<string, vector<HP_Read> > >(param.bams.size());
+   lbfgs_parameter_init(&lbfgsParam);
+   lbfgsParam.max_step = 100;
 }
 
 // load mRNAs from indexed GFF file
@@ -43,6 +45,11 @@ void HP_Model::loadMRNAs() {
 		numReadsPossible[isoInd] = max(0, 
             mRNAs[isoInd].getLength() - param.readLen) + 1; 
 	}
+
+   maxEnd.resize(numIsos);
+   for (int isoInd = 0; isoInd < numIsos; isoInd++) {
+      maxEnd[isoInd] = max(mRNAs[isoInd].end, isoInd == 0? -1: maxEnd[isoInd-1]);
+   }
 }
 
 struct _HP_TMPSTRUCT {
@@ -56,10 +63,19 @@ HP_Read loadRead(bam1_t * b) {
    read.name = bam1_qname(b);
    read.len = b->core.l_qseq;
    read.cigar = vector<int32_t>(b->core.n_cigar);
+   uint8_t * hi = bam_aux_get_core(b, "HI");
+   if (hi[0] == 'C' || hi[0] == 'c') {
+      read.hi = *(int8_t *) (hi + 1);
+   } else if (hi[0] == 's' || hi[0] == 'S') {
+      read.hi = *(int16_t *) (hi + 2);
+   } else {
+      read.hi = *(int32_t *) (hi + 4);
+   }
    uint32_t *cigar = bam1_cigar(b);
    for (int i = 0; i < b->core.n_cigar; i++ ) {
       read.cigar[i] = cigar[i];
    }
+   read.pnext = b->core.mpos+1;
    return read;
 }
 
@@ -91,37 +107,60 @@ void HP_Model::loadReadsAndComputeLogScore() {
       HP_Read read1, read2;
       bam1_t* b = bam_init1();
       int numReads = 0;
-      while (bam_read1(in->x.bam, b) >= 0) { 
-         HP_Read read1 = loadRead(b);
+      int ret = 0;
 
-         if (read1.name != read2.name) {
-            read2 = read1;
-            continue;
+      unordered_map<int32_t, vector<HP_Read> > readsByHI;
+      while (ret >= 0) { 
+         ret = bam_read1(in->x.bam, b);
+         read1 = loadRead(b);
+         if (ret < 0 || read1.name != read2.name) {
+            unordered_map<int, double> scores;
+
+            for (unordered_map<int32_t, vector<HP_Read> >::iterator ii = readsByHI.begin(); ii != readsByHI.end(); ii++) {
+               if (ii->second.size() != 2) continue; // only consider paired
+               
+               HP_MRNA ref;
+               ref.start = min(ii->second[0].pos, ii->second[1].pos);
+
+               vector<HP_MRNA>::iterator jj = upper_bound(mRNAs.begin(), mRNAs.end(), ref);
+               while (jj != mRNAs.begin()) {
+                  jj--;
+
+                  int isoInd = jj - mRNAs.begin();
+                  if (maxEnd[isoInd] < ref.start) break;
+
+                  if (!ii->second[0].doesAlignTo(*jj)) continue;
+                  if (!ii->second[1].doesAlignTo(*jj)) continue;
+                  if (!ii->second[0].isOverhangOK(param.overhangLen)) continue;
+                  if (!ii->second[1].isOverhangOK(param.overhangLen)) continue;
+
+                  int iLen = HP_GetInsertedLength(ii->second[0], ii->second[1], *jj);
+                  double tmp = (iLen - (double) param.meanInsertedLen) /
+                     param.stdInsertedLen;
+                  double logScore = -0.5 * log(2 * M_PI)
+                     - log((double)param.stdInsertedLen) - 0.5 * tmp * tmp
+                     + log(1.0) - log(numReadsPossible[jj - mRNAs.begin()]);
+
+                  // use the maximum score`
+                  if (scores.find(isoInd) == scores.end()) {
+                     scores[isoInd] = logScore; 
+                  } else {
+                     scores[isoInd] = max(scores[isoInd], logScore);
+                  } 
+               }
+            }
+            *((int*) buffer) = scores.size();
+            of.write(buffer, sizeof(int));
+            for (unordered_map<int, double>::iterator ii = scores.begin();  ii != scores.end(); ii++) {
+               *((int*) buffer) = ii->first;
+               of.write(buffer, sizeof(int));
+               *((double*) buffer) = ii->second;
+               of.write(buffer, sizeof(double));
+            }
+            numReads++;
+            readsByHI.clear();
          }
-
-         bool isOK = false;
-         for (int isoInd = 0; isoInd < numIsos; isoInd++) {
-            if (!read1.doesAlignTo(mRNAs[isoInd])) continue;
-            if (!read2.doesAlignTo(mRNAs[isoInd])) continue;
-            if (!read1.isOverhangOK(param.overhangLen)) continue;
-            if (!read2.isOverhangOK(param.overhangLen)) continue;
-
-            isOK = true;
-
-            int iLen = HP_GetInsertedLength(read1, read2, mRNAs[isoInd]);
-            double tmp = (iLen - (double) param.meanInsertedLen) /
-               param.stdInsertedLen;
-			   double logScore = -0.5 * log(2 * M_PI)
-               - log((double)param.stdInsertedLen) - 0.5 * tmp * tmp
-					+ log(1.0) - log(numReadsPossible[isoInd]);
-
-            // save numReads, isoInd and logScore
-            *((int*) buffer) = numReads;
-            *((int*) (buffer + sizeof(int))) = isoInd;
-            *((double*) (buffer + 2 * sizeof(int))) = logScore;
-            of.write(buffer, 2 * sizeof(int) + sizeof(double));
-         }
-         if (isOK) numReads++;
+         readsByHI[read1.hi].push_back(read1);
          read2 = read1;
       }
       bam_destroy1(b);
@@ -378,7 +417,7 @@ void HP_Model::updateAlphaBFGS() {
 		logAlpha[k] = log(alpha[k]);
 	}
 
-	int ret =  lbfgs(numIsos, logAlpha, &fx, _evaluate, _progress, this, NULL);
+	int ret =  lbfgs(numIsos, logAlpha, &fx, _evaluate, _progress, this, &lbfgsParam);
 	
 	for (int k = 0; k < numIsos; k++) {
 		alpha[k] = exp(logAlpha[k]);
@@ -465,44 +504,31 @@ void HP_Model::performBVI() {
                exit(1);
             }
 
-            int lastN = -1;
-            vector<int> isoInds;
-            vector<double> weightedScores;
             while (is.good()) {
-               int n, k;
-               double logScore, weightedScore;
-               is.read(buffer, sizeof(int) * 2 + sizeof(double));
-               n = *(int *) buffer;
-               k = *(int *) (buffer + sizeof(int));
-               logScore = *(double *) (buffer + 2*sizeof(int));
-               weightedScore = logScore + weightsBySub[subInd][k]; 
-               if (n == lastN) {
+               is.read(buffer, sizeof(int));
+               int len = *(int *) buffer;
+               vector<int> isoInds;
+               vector<double> weightedScores;
+               vector<double> scores;
+
+               for (int l = 0; l < len && is.good(); l++) {
+                  is.read(buffer, sizeof(int) + sizeof(double));
+                  int k = *(int *) buffer; 
+                  double logScore = *(double *) (buffer + sizeof(int));
                   isoInds.push_back(k);
-                  weightedScores.push_back(weightedScore);
+                  scores.push_back(logScore);
+                  weightedScores.push_back(logScore + weightsBySub[subInd][k]);
                }
+               double normalizer = logSumExp(weightedScores);
 
-               if ((!is.good() || n != lastN) && isoInds.size() > 0) {
-                  double normalizer = logSumExp(weightedScores);
-
-                  for (int l = 0; l < isoInds.size(); l++) {
-                     double r = exp(weightedScores[l] - normalizer);
-                     partBoundBySub[subInd] += r * 
-                        ((digamma(betas[isoInds[l]]) - digammaSumBetas)
-                        + logScore - log(r));
-                     betas[isoInds[l]] += r;
-                  }
-
-                  if (n != lastN) {
-                     isoInds.clear();
-                     weightedScores.clear();
-                     isoInds.push_back(k);
-                     weightedScores.push_back(weightedScore);
-                  }
+               for (int l = 0; l < isoInds.size(); l++) {
+                  double r = exp(weightedScores[l] - normalizer);
+                  partBoundBySub[subInd] += r * 
+                     ((digamma(betas[isoInds[l]]) - digammaSumBetas)
+                     + scores[l] - log(r));
+                  betas[isoInds[l]] += r;
                }
-
-               lastN = n;
             }
-
             is.close();
 
             if (allClose(betasBySub[subInd], oldBetas, 1e-15)) {

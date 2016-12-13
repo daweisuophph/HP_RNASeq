@@ -1,5 +1,7 @@
 DIR=..
 
+export OMP_NUM_THREADS=1
+
 echo ""
 echo "Run N group..."
 ${DIR}/run \

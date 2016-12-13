@@ -20,6 +20,8 @@ public:
 	string name; // read name
 	int len; // read length
 	vector<int32_t> cigar;//cigar sequence (high 28 bits is count, low 4 bits is the operation);
+   int pnext; //Position of the primary alignment of the NEXT read in the template
+   int32_t hi;
 	
 	HP_Read();
 	string toString() const;
