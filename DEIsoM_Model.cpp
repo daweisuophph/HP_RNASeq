@@ -64,12 +64,14 @@ DEIsoM_Read loadRead(bam1_t * b) {
    read.len = b->core.l_qseq;
    read.cigar = vector<int32_t>(b->core.n_cigar);
    uint8_t * hi = bam_aux_get_core(b, "HI");
-   if (hi[0] == 'C' || hi[0] == 'c') {
-      read.hi = *(int8_t *) (hi + 1);
-   } else if (hi[0] == 's' || hi[0] == 'S') {
-      read.hi = *(int16_t *) (hi + 2);
-   } else {
-      read.hi = *(int32_t *) (hi + 4);
+   if (hi) {
+      if (hi[0] == 'C' || hi[0] == 'c') {
+         read.hi = *(int8_t *) (hi + 1);
+      } else if (hi[0] == 's' || hi[0] == 'S') {
+         read.hi = *(int16_t *) (hi + 2);
+      } else {
+         read.hi = *(int32_t *) (hi + 4);
+      }
    }
    uint32_t *cigar = bam1_cigar(b);
    for (int i = 0; i < b->core.n_cigar; i++ ) {
