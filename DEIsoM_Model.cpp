@@ -765,28 +765,16 @@ void DEIsoM_Model::saveFPKM(ofstream &of) {
 void DEIsoM_Model::saveBinary(ofstream &of) {
 	int currSize = 0;
 	// isFinished
-	if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
-		of.write(outputBuffer, currSize);
-		currSize = 0;
-	}
-	*(bool *) (outputBuffer+currSize) = isFinished;
-	currSize += sizeof(bool);
+	*(bool *) outputBuffer = isFinished;
+   of.write(outputBuffer, sizeof(bool));
 	
 	// numOfIsos
-	if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
-		of.write(outputBuffer, currSize);
-		currSize = 0;
-	}
-	*(int *) (outputBuffer+currSize) = numIsos;
-	currSize += sizeof(int);
+	*(int *) outputBuffer = numIsos;
+	of.write(outputBuffer, sizeof(int));
 	
 	// numOfSubs
-	if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
-		of.write(outputBuffer, currSize);
-		currSize = 0;
-	}
-	*(int *) (outputBuffer+currSize) = numSubs;
-	currSize += sizeof(int);
+	*(int *) outputBuffer = numSubs;
+   of.write(outputBuffer, sizeof(int));
 	
 	/*
 	// numReads
@@ -818,23 +806,15 @@ void DEIsoM_Model::saveBinary(ofstream &of) {
 	 */
 	// alpha
 	for (int k = 0; k < numIsos; k++) {
-		if (currSize + sizeof(double) >= MAX_BUFFER_SIZE) {
-			of.write(outputBuffer, currSize);
-			currSize = 0;
-		}
-		*(double *) (outputBuffer+currSize) = alpha[k];
-		currSize += sizeof(double);
+		*(double *) outputBuffer = alpha[k];
+      of.write(outputBuffer, sizeof(double));
 	}
 	
 	// betas
 	for (int m = 0; m < numSubs; m++) {
 		for (int k = 0; k < numIsos; k++) {
-			if (currSize + sizeof(double) >= MAX_BUFFER_SIZE) {
-				of.write(outputBuffer, currSize);
-				currSize = 0;
-			}
-			*(double *) (outputBuffer+currSize) = betasBySub[m][k];
-			currSize += sizeof(double);
+			*(double *) outputBuffer = betasBySub[m][k];
+         of.write(outputBuffer, sizeof(double));
 		}
 	}
 	/*
