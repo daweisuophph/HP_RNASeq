@@ -55,7 +55,7 @@ gffread ensGene.gff3 -T -o ensGene.gtf
 ### Prepare Indexed Reference From GFF3 File
 For fast computing, DEIsoM first build indexed reference. We build a GFF3 file for every gene seperately from a single gff3 file. The annotation we used in our experiment can be downloaded from [here](http://ftp.ensembl.org/pub/grch37/release-84/). We now only support gff3 format. To build the indexed reference, one can run:
 ```
-indexGFF [path to gff3 file] [output indexed reference folder]
+deisomIndexGFF [path to gff3 file] [output indexed reference folder]
 ```
 
 ### Prepare BAM files From FASTQ Data
@@ -73,7 +73,7 @@ samtools index accepted_hits.sorted.bam
 ### Run A Job
 Suppose we have M replicates and we want to build a model for N genes: gene 1, ..., gene N. The corresponding built indexed references are: gff 1, ..., gff N. We can run the model in one script:
 ```
-run --gene-ids [gene 1], [gene 2], ..., [gene N]   \
+deisomRun --gene-ids [gene 1], [gene 2], ..., [gene N]   \
     --gffs [gff 1], [gff 2], ..., [gff N]   \
     --bams [bam 1],[bam 2],...,[bam M]   \
     --read-len [read length]   \
@@ -150,7 +150,8 @@ The `[Gene ID].fpkm` file will look like:
 ### Split Jobs for Computing on A Cluster
 Submitting a large number of genes using the above script is not efficient. And we sometimes want to run these jobs in parallel on a large cluster. We have provided a helpder program to automatically deivide the jobs in small chunks:
 ```
-split --trunk-size [trunk size]   \
+deisomSplit --path [path to deisomRun] \
+      --trunk-size [trunk size]   \
       --gff-dir [indexed gff directory] \
       --bams [bam 1],[bam 2],...,[bam M]   \
       --read-len [read length]   \
@@ -159,23 +160,23 @@ split --trunk-size [trunk size]   \
       --in-iter [number of iterations for updating variational parameters]   \
       --output [output folder]
 ```
-You can also pass other options of `run` to it.
+You can also pass other options of `deisomRun` to it.
 
 ### Compute the Scores (KL divergences) for Identifying DE Genes
 To evaluate the results, we can either use the KL divergence between alphas or the KL divergence between betas. We can use these commends:
 - For general evaluations (either paired or unpaired between groups)
 ```
-kl [indexed GFF] [output of group 1] [output of group 2]  
+deisomKL [indexed GFF] [output of group 1] [output of group 2]  
 ```
 - For paired evalutions only
 ```
-kl --beta [indexed GFF] [output of group 1] [output of group 2] 
+deisomKL --beta [indexed GFF] [output of group 1] [output of group 2] 
 ```
-The output of kl will have multpile lines that looks like:
+The output of deisomKL will have multpile lines that looks like:
 ```
 chr22 ENSG00000100065  1 1 0.0912106
 ```
-Each line is an output for one gene. Column 1 is the chromosome ID. Column 2 is the gene ID. Column 3 represents whether the run program finished for group 1. Column 4 represents whether the run program finished for group 2. Column 4 is the kl divergence score.
+Each line is an output for one gene. Column 1 is the chromosome ID. Column 2 is the gene ID. Column 3 represents whether the run program finished for group 1. Column 4 represents whether the run program finished for group 2. Column 4 is the KL divergence score.
 
 # Simulations
 We have upload the scripts and code for creating sythetic data in our paper. We also include all scripts for all other models that we used in the experiments. Please check [simulation](https://github.com/hao-peng/DEIsoM/tree/master/simulation) for details.

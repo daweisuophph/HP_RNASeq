@@ -3,8 +3,8 @@
  Date: May 8, 2013
  Version: 1.0v
  */
-#ifndef _HP_MODEL
-#define _HP_MODEL
+#ifndef _DEIsoM_MODEL
+#define _DEIsoM_MODEL
 
 #include <string>
 #include <list>
@@ -15,19 +15,19 @@
 
 #include<time.h>
 #include <lbfgs.h>
-#include "HP_Read.h"
-#include "HP_Gene.h"
-#include "HP_Param.h"
+#include "DEIsoM_Read.h"
+#include "DEIsoM_Gene.h"
+#include "DEIsoM_Param.h"
 
 #define MAX_NEWTON_ITER 1000
 #define MAX_BUFFER_SIZE 4096
 using namespace std;
 
-class HP_Model {
+class DEIsoM_Model {
 private:
-	HP_Param param;
+	DEIsoM_Param param;
 	//sub->[readName, reads]
-	vector<map<string, list<HP_Read> > > readsByName;
+	vector<map<string, list<DEIsoM_Read> > > readsByName;
 	//sub->read->isoform->insertedLength
 	list<list<vector<int> > > insertedLensBySub;
 	//sub->read->isoform->match
@@ -121,10 +121,10 @@ private:
 	void saveFPKM(ofstream &of);
 
 public:
-	HP_Gene gene;
-	void addRead(const HP_Read &read, int index);
-	HP_Model(const HP_Param &param);
-	~HP_Model();
+	DEIsoM_Gene gene;
+	void addRead(const DEIsoM_Read &read, int index);
+	DEIsoM_Model(const DEIsoM_Param &param);
+	~DEIsoM_Model();
 	double computeLogVBLBBySub(int subInd);
 	double computeLogVBLB();
 	bool preprocessing();

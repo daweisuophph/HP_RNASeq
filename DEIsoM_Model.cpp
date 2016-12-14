@@ -7,8 +7,8 @@
 #include <sstream>
 #include <limits>
 #include <cmath>
-#include "HP_Model.h"
-#include "HP_Gff.h"
+#include "DEIsoM_Model.h"
+#include "DEIsoM_Gff.h"
 #include <boost/math/distributions/normal.hpp>
 #include <boost/math/special_functions/digamma.hpp>
 #include <boost/math/special_functions/gamma.hpp>
@@ -21,19 +21,19 @@
 using namespace std;
 using namespace boost::math;
 
-HP_Model::HP_Model(const HP_Param &param) {
+DEIsoM_Model::DEIsoM_Model(const DEIsoM_Param &param) {
 	this->param = param;
-	readsByName = vector<map<string, list<HP_Read> > >(param.bams.size());
+	readsByName = vector<map<string, list<DEIsoM_Read> > >(param.bams.size());
 	outputBuffer = new char[MAX_BUFFER_SIZE];
 }
 
-HP_Model::~HP_Model() {
+DEIsoM_Model::~DEIsoM_Model() {
 	delete outputBuffer;
 }
 
 // load gene from indexed GFF file
-void HP_Model::loadGene() {
-	HP_Gff gff(param.gff);
+void DEIsoM_Model::loadGene() {
+	DEIsoM_Gff gff(param.gff);
 	if (gff.genes.size() != 1) {
 		cerr << "Erorr: number of genes is not exactly one in GFF file \""
 			<< param.gff << "\"." << endl;
@@ -43,14 +43,14 @@ void HP_Model::loadGene() {
 	numIsos = gene.mRNAs.size();
 }
 
-struct _HP_TMPSTRUCT {
-	HP_Model *model;
+struct _DEIsoM_TMPSTRUCT {
+	DEIsoM_Model *model;
 	int index;
 };
 
 // callback for bam_fetch()
 static int fetch_func(const bam1_t *b, void *data) {
-	HP_Read read;
+	DEIsoM_Read read;
 	read.pos = b->core.pos+1; // change from 0 based to 1 based
 	read.name = bam1_qname(b);
 	read.len = b->core.l_qseq;
@@ -60,13 +60,13 @@ static int fetch_func(const bam1_t *b, void *data) {
 		read.cigar[i] = cigar[i];
 	}
 	//cout << read.toString() << endl;
-	struct _HP_TMPSTRUCT *tmp = (struct _HP_TMPSTRUCT *) data;
+	struct _DEIsoM_TMPSTRUCT *tmp = (struct _DEIsoM_TMPSTRUCT *) data;
 	tmp->model->addRead(read, tmp->index);
     return 0;
 }
 
 // load reads that intersect with the Gene.
-void HP_Model::loadReads() {
+void DEIsoM_Model::loadReads() {
 	int beg, end;
 	gene.getBounds(beg, end);
 	stringstream sstm;
@@ -95,7 +95,7 @@ void HP_Model::loadReads() {
             cerr << "Error: BAM indexing file is not available." << endl;
             exit(1);
         }
-		struct _HP_TMPSTRUCT tmp;
+		struct _DEIsoM_TMPSTRUCT tmp;
 		tmp.model = this;
 		tmp.index = ind;
 		bam_fetch(in->x.bam, idx, ref, newBeg, newEnd, &tmp, fetch_func);
@@ -105,7 +105,7 @@ void HP_Model::loadReads() {
 }
 
 // load the total read count of each subject
-void HP_Model::loadReadCount() {
+void DEIsoM_Model::loadReadCount() {
 	ifstream ifs(param.readCountFile.c_str());
 	if (ifs.is_open()) {
 		while (ifs.good()) {
@@ -123,11 +123,11 @@ void HP_Model::loadReadCount() {
 	}
 }
 
-void HP_Model::computeLogScore() {
+void DEIsoM_Model::computeLogScore() {
 
 	vector<int> isoLengths(numIsos);
 	int i = 0;
-	for (list<HP_MRNA>::iterator ii = gene.mRNAs.begin();
+	for (list<DEIsoM_MRNA>::iterator ii = gene.mRNAs.begin();
 		 ii != gene.mRNAs.end(); ii++, i++){
 		isoLengths[i] = ii->getLength();
 	}
@@ -175,7 +175,7 @@ void HP_Model::computeLogScore() {
 	}
 }
 
-void HP_Model::initVariables() {
+void DEIsoM_Model::initVariables() {
 	alpha = vector<double>(numIsos);
 	for (int i = 0; i < numIsos; i++) {
 		alpha[i] = 1.0;
@@ -200,7 +200,7 @@ void HP_Model::initVariables() {
 
 
 // load data and initialize variables
-bool HP_Model::preprocessing() {
+bool DEIsoM_Model::preprocessing() {
    startTime = clock();
 	cerr << "Loading gene..." << endl;
 	loadGene();
@@ -236,16 +236,16 @@ bool HP_Model::preprocessing() {
 	return true;
 }
 
-void HP_Model::addRead(const HP_Read &read, int ind) {
+void DEIsoM_Model::addRead(const DEIsoM_Read &read, int ind) {
 	readsByName[ind][read.name].push_back(read);
 }
 
 
-void HP_Model::computeAlignments() {
+void DEIsoM_Model::computeAlignments() {
 	for (int ind = 0; ind < readsByName.size(); ind++) {
 		list<vector<bool> >  alignments;
 		list<vector<int> > insertedLens;
-		for (map<string, list<HP_Read> >::iterator ii = readsByName[ind].begin();
+		for (map<string, list<DEIsoM_Read> >::iterator ii = readsByName[ind].begin();
 			 ii != readsByName[ind].end(); ii++) {
 			if (param.isSingleEnd) {
 				if (ii->second.size() != 1) {
@@ -260,11 +260,11 @@ void HP_Model::computeAlignments() {
 			vector<int> insertedLen = vector <int>(gene.mRNAs.size());
 			int isoformIndex = 0;
 			bool allMismatch = true;
-			for (list<HP_MRNA>::iterator ij = gene.mRNAs.begin();
+			for (list<DEIsoM_MRNA>::iterator ij = gene.mRNAs.begin();
 				 ij != gene.mRNAs.end(); ij++, isoformIndex++) {
 				alignment[isoformIndex] = true;
 				if (param.isSingleEnd) {
-					list<HP_Read>::iterator read = ii->second.begin();
+					list<DEIsoM_Read>::iterator read = ii->second.begin();
 					if (!read->doesAlignTo(*ij)) {
 						alignment[isoformIndex] = false;
 					}
@@ -272,8 +272,8 @@ void HP_Model::computeAlignments() {
 						alignment[isoformIndex] = false;
 					}
 				} else {
-					list<HP_Read>::iterator read1 = ii->second.begin();
-					list<HP_Read>::iterator read2 = read1;
+					list<DEIsoM_Read>::iterator read1 = ii->second.begin();
+					list<DEIsoM_Read>::iterator read2 = read1;
 					read2++;
 					if (!read1->doesAlignTo(*ij) ||
 						!read2->doesAlignTo(*ij)) {
@@ -284,7 +284,7 @@ void HP_Model::computeAlignments() {
 						alignment[isoformIndex] = false;
 					}
 					if (alignment[isoformIndex]) {
-						int iLen = HP_GetInsertedLength(*read1, *read2, *ij);
+						int iLen = DEIsoM_GetInsertedLength(*read1, *read2, *ij);
 						insertedLen[isoformIndex] = iLen;
 					} else {
 						insertedLen[isoformIndex] = 0;
@@ -359,7 +359,7 @@ static inline double logSumExp(vector<double> &a) {
 	
 }
 
-void HP_Model::updateRs(int subInd) {
+void DEIsoM_Model::updateRs(int subInd) {
 	vector<double> &betas = betasBySub[subInd];
 	vector<vector<double> > &rs = rsBySub[subInd];
 	double sumBetas = 0.0;
@@ -381,7 +381,7 @@ void HP_Model::updateRs(int subInd) {
 	}
 }
 
-void HP_Model::updateBetas(int subInd) {
+void DEIsoM_Model::updateBetas(int subInd) {
 	vector<double> &betas = betasBySub[subInd];
 	vector<vector<double> > &rs = rsBySub[subInd];
 	for (int k = 0; k < numIsos; k++) {
@@ -392,16 +392,16 @@ void HP_Model::updateBetas(int subInd) {
 	}
 }
 
-lbfgsfloatval_t HP_Model::_evaluate(
+lbfgsfloatval_t DEIsoM_Model::_evaluate(
 		void *instance,
 		const lbfgsfloatval_t *x,
 		lbfgsfloatval_t *g,
 		const int n,
 		const lbfgsfloatval_t step) {
-	return reinterpret_cast<HP_Model*>(instance)->evaluate(x, g, n, step);
+	return reinterpret_cast<DEIsoM_Model*>(instance)->evaluate(x, g, n, step);
 }
 
-lbfgsfloatval_t HP_Model::evaluate(
+lbfgsfloatval_t DEIsoM_Model::evaluate(
 		const lbfgsfloatval_t *logAlpha,
 		lbfgsfloatval_t *g,
 		const int numIsos,
@@ -457,7 +457,7 @@ lbfgsfloatval_t HP_Model::evaluate(
 	return fx;
 }
 
-int HP_Model::_progress(
+int DEIsoM_Model::_progress(
 		void *instance,
 		const lbfgsfloatval_t *x,
 		const lbfgsfloatval_t *g,
@@ -468,10 +468,10 @@ int HP_Model::_progress(
 		int n,
 		int k,
 		int ls) {
-	return reinterpret_cast<HP_Model*>(instance)->progress(x, g, fx, xnorm, gnorm, step, n, k, ls);
+	return reinterpret_cast<DEIsoM_Model*>(instance)->progress(x, g, fx, xnorm, gnorm, step, n, k, ls);
 }
 
-int HP_Model::progress(
+int DEIsoM_Model::progress(
 		const lbfgsfloatval_t *x,
 		const lbfgsfloatval_t *g,
 		const lbfgsfloatval_t fx,
@@ -495,7 +495,7 @@ int HP_Model::progress(
 	return 0;
 }
 
-void HP_Model::updateAlpha() {
+void DEIsoM_Model::updateAlpha() {
    if (param.bfgsUpdate) {
       updateAlphaBFGS();
    } else {
@@ -503,7 +503,7 @@ void HP_Model::updateAlpha() {
    }
 }
 
-void HP_Model::updateAlphaNewton() {
+void DEIsoM_Model::updateAlphaNewton() {
 	for (int iter = 0; iter < MAX_NEWTON_ITER; iter++) {
 		vector<double> oldAlpha = alpha;
 		// compute ss
@@ -560,7 +560,7 @@ void HP_Model::updateAlphaNewton() {
 	}
 }
 
-void HP_Model::updateAlphaBFGS() {
+void DEIsoM_Model::updateAlphaBFGS() {
 	lbfgsfloatval_t fx;
 	lbfgsfloatval_t *logAlpha = lbfgs_malloc(numIsos);
 
@@ -578,7 +578,7 @@ void HP_Model::updateAlphaBFGS() {
 }
 
 
-double HP_Model::computeLogVBLBBySub(int m) {
+double DEIsoM_Model::computeLogVBLBBySub(int m) {
 	double logVBLB = 0.0;
 	double sumAlphas = 0.0;
 	for (int k = 0; k < numIsos; k++)
@@ -617,7 +617,7 @@ double HP_Model::computeLogVBLBBySub(int m) {
 	return logVBLB;
 }
 
-double HP_Model::computeLogVBLB() {
+double DEIsoM_Model::computeLogVBLB() {
 	double logVBLB = 0.0;
 	for (int m = 0; m < numSubs; m++) {
 		logVBLB += computeLogVBLBBySub(m);
@@ -628,7 +628,7 @@ double HP_Model::computeLogVBLB() {
 
 
 
-void HP_Model::performBVI() {
+void DEIsoM_Model::performBVI() {
 	isFinished = false;
 	for (int currOutIter = 0; currOutIter < param.numOutIters; currOutIter++) {
 		if (currOutIter) {
@@ -666,12 +666,12 @@ void HP_Model::performBVI() {
 	cerr << "Finished succussfull." << endl;
 }
 
-void HP_Model::saveHumanReadable(ofstream &of) {
+void DEIsoM_Model::saveHumanReadable(ofstream &of) {
 	of << "# isFinished" << endl << isFinished << endl;
 	of << "# gene" << endl << gene.ID << endl;
 	of << "# numIsos" << endl << numIsos << endl;
 	of << "# isoforms" << endl;
-	for (list<HP_MRNA>::iterator ii = gene.mRNAs.begin();
+	for (list<DEIsoM_MRNA>::iterator ii = gene.mRNAs.begin();
 		 ii != gene.mRNAs.end(); ii++) {
 		of << ii->ID << " ";
 	}
@@ -725,13 +725,13 @@ void HP_Model::saveHumanReadable(ofstream &of) {
 }
 
 
-void HP_Model::saveFPKM(ofstream &of) {
+void DEIsoM_Model::saveFPKM(ofstream &of) {
    of << "# time" << endl << (clock()-startTime)/(double)CLOCKS_PER_SEC << endl; 
 	of << "# isFinished" << endl << isFinished << endl;
 	of << "# gene" << endl << gene.ID << endl;
 	of << "# numIsos" << endl << numIsos << endl;
 	of << "# isoforms" << endl;
-	for (list<HP_MRNA>::iterator ii = gene.mRNAs.begin();
+	for (list<DEIsoM_MRNA>::iterator ii = gene.mRNAs.begin();
 		 ii != gene.mRNAs.end(); ii++) {
 		of << ii->ID << " ";
 	}
@@ -762,7 +762,7 @@ void HP_Model::saveFPKM(ofstream &of) {
 }
 
 
-void HP_Model::saveBinary(ofstream &of) {
+void DEIsoM_Model::saveBinary(ofstream &of) {
 	int currSize = 0;
 	// isFinished
 	if (currSize + sizeof(int) >= MAX_BUFFER_SIZE) {
@@ -871,7 +871,7 @@ void HP_Model::saveBinary(ofstream &of) {
 }
 
 
-void HP_Model::save() {
+void DEIsoM_Model::save() {
 	ofstream of((param.outputDir+"/"+gene.ID).c_str());
 	if (of) {
 		if (param.outputBinary) {

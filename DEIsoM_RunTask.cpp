@@ -13,12 +13,12 @@ Run the analysis for one gene
 #include <cstdlib>
 #include <list>
 #include <boost/filesystem.hpp>
-#include "HP_Model.h"
+#include "DEIsoM_Model.h"
 
 using namespace std;
 
-list<HP_Param> parseArg(int argc, char **argv)  {
-	HP_Param param;
+list<DEIsoM_Param> parseArg(int argc, char **argv)  {
+	DEIsoM_Param param;
 	list<string> gffs;
 	list<string> geneIDs;
 	bool errorFlag = false;
@@ -144,7 +144,7 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 		exit(1);
 	}
 	
-	list<HP_Param> params;
+	list<DEIsoM_Param> params;
 	for (list<string>::iterator ii = geneIDs.begin(), ij = gffs.begin();
 		 ii != geneIDs.end() && ij != gffs.end();
 		 ii++, ij++) {
@@ -156,12 +156,12 @@ list<HP_Param> parseArg(int argc, char **argv)  {
 }
 
 int main(int argc, char **argv) {
-	list<HP_Param> params = parseArg(argc, argv);
-	for (list<HP_Param>::iterator ii = params.begin();
+	list<DEIsoM_Param> params = parseArg(argc, argv);
+	for (list<DEIsoM_Param>::iterator ii = params.begin();
 		 ii != params.end(); ii++) {
 		cerr << "------------------------------------------" << endl
 			<< "Computing:" << endl << ii->toString() << endl;
-		HP_Model model(*ii);
+		DEIsoM_Model model(*ii);
 		if (model.preprocessing()) {
 			model.performBVI();
 			model.save();

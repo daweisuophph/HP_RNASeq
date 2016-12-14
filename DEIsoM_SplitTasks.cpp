@@ -14,14 +14,14 @@
 #include <list>
 #include <sstream>
 #include <boost/filesystem.hpp>
-#include "HP_Param.h"
-#include "HP_Gff.h"
+#include "DEIsoM_Param.h"
+#include "DEIsoM_Gff.h"
 
 using namespace std;
 namespace fs = boost::filesystem;
 
 typedef struct _Temp_Param {
-	HP_Param param;
+	DEIsoM_Param param;
 	int trunkSize;
 	string mainPath;
 } Temp_Param;
@@ -29,7 +29,7 @@ typedef struct _Temp_Param {
 Temp_Param parseArg(int argc, char **argv)  {
 	Temp_Param tmpParam;
 	tmpParam.trunkSize = 1;
-	HP_Param &param = tmpParam.param;
+	DEIsoM_Param &param = tmpParam.param;
 	
 	bool errorFlag = false;
 	// parse options
@@ -174,7 +174,7 @@ void tranverseDir(fs::path dir, list<Task> &tasks) {
 				tranverseDir(dir_itr->path(), tasks);
 			}
 		} else {
-			HP_Gff gff(dir.string());
+			DEIsoM_Gff gff(dir.string());
 			if (gff.genes.size() == 1) {
 				Task task;
 				task.geneID = gff.genes.begin()->ID;

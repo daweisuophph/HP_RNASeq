@@ -6,8 +6,8 @@
 #include <string>
 #include <cstdlib>
 #include <iostream>
-#include "HP_Gff.h"
-#include "HP_Gene.h"
+#include "DEIsoM_Gff.h"
+#include "DEIsoM_Gene.h"
 #include <boost/filesystem.hpp>
 
 using namespace std;
@@ -44,7 +44,7 @@ int main (int argc, char **argv) {
 	string outputDir;
 	parseArg(argc, argv, gffFile, outputDir);
 	cerr << "Loading GFF file" << endl;
-	HP_Gff gff(gffFile);
+	DEIsoM_Gff gff(gffFile);
 	cerr << "Finished loading" << endl;
 	/*
 	// print all genes
@@ -52,10 +52,10 @@ int main (int argc, char **argv) {
 		cout << (*ii).toString() << endl;
 	}
 	*/
-	map<string, list<HP_Gene> > genesBySeqid;
+	map<string, list<DEIsoM_Gene> > genesBySeqid;
 	gff.getGenesBySeqid(genesBySeqid);
 	cerr << "Output indexed GFF files" << endl;
-	for (map<string, list<HP_Gene> >::iterator ii = genesBySeqid.begin();
+	for (map<string, list<DEIsoM_Gene> >::iterator ii = genesBySeqid.begin();
 		 ii != genesBySeqid.end(); ii++) {
 		string chr = ii->first;
 		try {
@@ -65,7 +65,7 @@ int main (int argc, char **argv) {
 				outputDir << "/" << chr << "\"."<< endl;
 			exit(1);
 		}
-		for (list<HP_Gene>::iterator ij = ii->second.begin();
+		for (list<DEIsoM_Gene>::iterator ij = ii->second.begin();
 			 ij != ii->second.end(); ij++) {
 			ofstream geneFile((outputDir+"/"+chr+"/"+ij->ID+".gff3").c_str());
 			if (geneFile) {

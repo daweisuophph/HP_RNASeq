@@ -1,14 +1,14 @@
 DIR=..
 
 echo "Creating indexed gff files..."
-${DIR}/indexGFF ENSG00000100065.gff3 ./indexed/
+${DIR}/deisomIndexGFF ENSG00000100065.gff3 ./indexed/
 
 echo "Counting reads..."
 ./count_reads.sh
 
 echo ""
 echo "Creating scripts for N group..."
-${DIR}/split --path ${DIR}/run \
+${DIR}/deisomSplit --path ${DIR}/deisomRun \
 		--trunk-size 1\
 		--gff-dir indexed\
 		--bams read/11N/RUM.sorted.bam,read/22N/RUM.sorted.bam,read/28N/RUM.sorted.bam,read/30N/RUM.sorted.bam \
@@ -22,7 +22,7 @@ ${DIR}/split --path ${DIR}/run \
 
 echo ""
 echo "Creating scripts for T group..."
-${DIR}/split --path ${DIR}/run \
+${DIR}/deisomSplit --path ${DIR}/deisomRun \
 		--trunk-size 1\
 		--gff-dir indexed\
 		--bams read/11T/RUM.sorted.bam,read/22T/RUM.sorted.bam,read/28T/RUM.sorted.bam,read/30T/RUM.sorted.bam \
@@ -45,4 +45,4 @@ chmod 777 ./output/T/cluster_scripts/task0.sh
 ./output/T/cluster_scripts/task0.sh
 
 echo "Compute KL..."
-${DIR}/kl ./indexed ./output/T/ ./output/N/ > kl.txt
+${DIR}/deisomKL ./indexed ./output/T/ ./output/N/ > kl.txt

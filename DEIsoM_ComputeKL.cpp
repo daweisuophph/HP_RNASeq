@@ -9,14 +9,14 @@
 #include <iostream>
 #include <list>
 #include <vector>
-#include "HP_Gff.h"
+#include "DEIsoM_Gff.h"
 
 using namespace std;
 using namespace boost::math;
 namespace fs = boost::filesystem;
 
 
-void tranverseDir(fs::path dir, list<HP_Gene> &genes) {
+void tranverseDir(fs::path dir, list<DEIsoM_Gene> &genes) {
 	if (fs::exists(dir)) {
 		if (fs::is_directory(dir)) {
 			fs::directory_iterator end_iter;
@@ -26,7 +26,7 @@ void tranverseDir(fs::path dir, list<HP_Gene> &genes) {
 				tranverseDir(dir_itr->path(), genes);
 			}
 		} else {
-			HP_Gff gff(dir.string());
+			DEIsoM_Gff gff(dir.string());
 			if (gff.genes.size() == 1) {
 				genes.push_back(*gff.genes.begin());
 			}
@@ -205,11 +205,11 @@ int main(int argc, char **argv) {
 	fs::path dir(fs::initial_path<fs::path>());
 	dir = fs::system_complete(indexDir);
 	
-	list<HP_Gene> genes;
+	list<DEIsoM_Gene> genes;
 	tranverseDir(dir, genes);
 	
 	
-	for (list<HP_Gene>::iterator ii = genes.begin();
+	for (list<DEIsoM_Gene>::iterator ii = genes.begin();
 		 ii != genes.end(); ii++) {
 		cout << ii->seqid << " " << ii->ID << " ";
 		string path1 = string(outputDir1) + "/" + ii->seqid + "/" + ii->ID;

@@ -3,11 +3,11 @@
  Date: May 8, 2013
  Version: 1.0v
  */
-#include "HP_Param.h"
+#include "DEIsoM_Param.h"
 #include <sstream>
 
 using namespace std;
-HP_Param::HP_Param() {
+DEIsoM_Param::DEIsoM_Param() {
 	isSingleEnd = true;
 	meanInsertedLen = 0;
 	stdInsertedLen = 0;
@@ -25,7 +25,7 @@ HP_Param::HP_Param() {
 }
 
 // to string
-string HP_Param::toString() const {
+string DEIsoM_Param::toString() const {
 	stringstream sstm;
 	sstm << "Gene ID: " << geneID << endl;
 	sstm << "GFF filename: " << gff << endl;

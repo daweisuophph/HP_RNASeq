@@ -25,56 +25,56 @@ INCLUDE=${BOOST_INCLUDE} ${SAMTOOLS_INCLUDE} ${HTSLIB_INCLUDE} ${LBFGS_INCLUDE}
 LIB=${BOOST_LIB} ${SAMTOOLS_LIB} ${HTSLIB_LIB} ${BOOST_OPTION} ${SAMTOOLS_OPTION} ${HTSLIB_OPTION}
 
 
-all: run indexGFF estimate split kl
+all: deisomRun deisomIndexGFF deisomEstimate deisomSplit deisomKL
 
-run: HP_Model.o HP_RunTask.o HP_Gene.o HP_Gff.o HP_Read.o HP_Param.o asa121.o
-	${LIBTOOL} ${LINK_OPTION} ${CC} ${CC_OPTION} -o run HP_Model.o HP_RunTask.o HP_Gene.o HP_Gff.o HP_Read.o HP_Param.o asa121.o ${LBFGS_LA} ${LIB}
+deisomRun: DEIsoM_Model.o DEIsoM_RunTask.o DEIsoM_Gene.o DEIsoM_Gff.o DEIsoM_Read.o DEIsoM_Param.o asa121.o
+	${LIBTOOL} ${LINK_OPTION} ${CC} ${CC_OPTION} -o deisomRun DEIsoM_Model.o DEIsoM_RunTask.o DEIsoM_Gene.o DEIsoM_Gff.o DEIsoM_Read.o DEIsoM_Param.o asa121.o ${LBFGS_LA} ${LIB}
 
-indexGFF: HP_IndexGff.o HP_Gene.o HP_Gff.o 
-	${CC}  ${CC_OPTION} -o indexGFF HP_IndexGff.o HP_Gene.o HP_Gff.o ${LIB}
+deisomIndexGFF: DEIsoM_IndexGff.o DEIsoM_Gene.o DEIsoM_Gff.o 
+	${CC}  ${CC_OPTION} -o deisomIndexGFF DEIsoM_IndexGff.o DEIsoM_Gene.o DEIsoM_Gff.o ${LIB}
 
-split: HP_SplitTasks.o HP_Param.o HP_Gff.o
-	${CC} ${CC_OPTION} -o split HP_SplitTasks.o HP_Param.o HP_Gff.o HP_Gene.o ${LIB}
+deisomSplit: DEIsoM_SplitTasks.o DEIsoM_Param.o DEIsoM_Gff.o
+	${CC} ${CC_OPTION} -o deisomSplit DEIsoM_SplitTasks.o DEIsoM_Param.o DEIsoM_Gff.o DEIsoM_Gene.o ${LIB}
 
-estimate: HP_Estimate.o HP_Read.o HP_Gene.o HP_Gff.o
-	${CC} ${CC_OPTION} -o estimate HP_Estimate.o HP_Read.o HP_Gene.o HP_Gff.o ${LIB}
+deisomEstimate: DEIsoM_Estimate.o DEIsoM_Read.o DEIsoM_Gene.o DEIsoM_Gff.o
+	${CC} ${CC_OPTION} -o deisomEstimate DEIsoM_Estimate.o DEIsoM_Read.o DEIsoM_Gene.o DEIsoM_Gff.o ${LIB}
 
-kl: HP_ComputeKL.o HP_Gff.o HP_Gene.o
-	${CC} ${CC_OPTION} -o kl HP_ComputeKL.o HP_Gff.o HP_Gene.o ${LIB}
+deisomKL: DEIsoM_ComputeKL.o DEIsoM_Gff.o DEIsoM_Gene.o
+	${CC} ${CC_OPTION} -o deisomKL DEIsoM_ComputeKL.o DEIsoM_Gff.o DEIsoM_Gene.o ${LIB}
 
-HP_Model.o: HP_Model.cpp HP_Model.h
-	${CC} ${CC_OPTION} -c -o HP_Model.o HP_Model.cpp ${INCLUDE}
+DEIsoM_Model.o: DEIsoM_Model.cpp DEIsoM_Model.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_Model.o DEIsoM_Model.cpp ${INCLUDE}
 
-HP_RunTask.o: HP_RunTask.cpp HP_Model.h
-	${CC} ${CC_OPTION} -c -o HP_RunTask.o HP_RunTask.cpp ${INCLUDE}
+DEIsoM_RunTask.o: DEIsoM_RunTask.cpp DEIsoM_Model.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_RunTask.o DEIsoM_RunTask.cpp ${INCLUDE}
 
-HP_IndexGff.o: HP_IndexGff.cpp HP_Gene.h HP_Gff.h
-	${CC} ${CC_OPTION} -c -o HP_IndexGff.o HP_IndexGff.cpp ${BOOST_INCLUDE}
+DEIsoM_IndexGff.o: DEIsoM_IndexGff.cpp DEIsoM_Gene.h DEIsoM_Gff.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_IndexGff.o DEIsoM_IndexGff.cpp ${BOOST_INCLUDE}
 
-HP_Gene.o: HP_Gene.cpp HP_Gene.h
-	${CC} ${CC_OPTION} -c -o HP_Gene.o HP_Gene.cpp
+DEIsoM_Gene.o: DEIsoM_Gene.cpp DEIsoM_Gene.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_Gene.o DEIsoM_Gene.cpp
 
-HP_Param.o: HP_Param.cpp HP_Param.h
-	${CC} ${CC_OPTION} -c -o HP_Param.o HP_Param.cpp
+DEIsoM_Param.o: DEIsoM_Param.cpp DEIsoM_Param.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_Param.o DEIsoM_Param.cpp
 
-HP_Gff.o: HP_Gff.cpp HP_Gff.h
-	${CC} ${CC_OPTION} -c -o HP_Gff.o HP_Gff.cpp
+DEIsoM_Gff.o: DEIsoM_Gff.cpp DEIsoM_Gff.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_Gff.o DEIsoM_Gff.cpp
 
-HP_Read.o: HP_Read.cpp HP_Read.h
-	${CC} ${CC_OPTION} -c -o HP_Read.o HP_Read.cpp ${BOOST_INCLUDE}
+DEIsoM_Read.o: DEIsoM_Read.cpp DEIsoM_Read.h
+	${CC} ${CC_OPTION} -c -o DEIsoM_Read.o DEIsoM_Read.cpp ${BOOST_INCLUDE}
 
-HP_Estimate.o: HP_Estimate.cpp
-	${CC} ${CC_OPTION} -c -o HP_Estimate.o HP_Estimate.cpp ${INCLUDE}
+DEIsoM_Estimate.o: DEIsoM_Estimate.cpp
+	${CC} ${CC_OPTION} -c -o DEIsoM_Estimate.o DEIsoM_Estimate.cpp ${INCLUDE}
 
-HP_SplitTasks.o: HP_SplitTasks.cpp
-	${CC} ${CC_OPTION} -c -o HP_SplitTasks.o HP_SplitTasks.cpp ${BOOST_INCLUDE}
+DEIsoM_SplitTasks.o: DEIsoM_SplitTasks.cpp
+	${CC} ${CC_OPTION} -c -o DEIsoM_SplitTasks.o DEIsoM_SplitTasks.cpp ${BOOST_INCLUDE}
 
-HP_ComputeKL.o: HP_ComputeKL.cpp
-	${CC} ${CC_OPTION} -c -o HP_ComputeKL.o HP_ComputeKL.cpp ${BOOST_INCLUDE}
+DEIsoM_ComputeKL.o: DEIsoM_ComputeKL.cpp
+	${CC} ${CC_OPTION} -c -o DEIsoM_ComputeKL.o DEIsoM_ComputeKL.cpp ${BOOST_INCLUDE}
 
 asa121.o: asa121.h asa121.cpp
 	${CC} ${CC_OPTION} -c -o asa121.o asa121.cpp
 
 clean:
 	rm -f *.o
-	rm -f run indexGFF estimate split kl
+	rm -f deisomRun deisomIndexGFF deisomEstimate deisomSplit desiomKL
