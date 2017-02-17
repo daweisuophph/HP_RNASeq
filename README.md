@@ -49,7 +49,7 @@ We need to prepare the annotation and seuqence files to sample and mapping reads
 
 As DEIsoM only accepts gff3 format annotation file. We could use the follwing script to conver gtf format to gff3 format:
 ```
-gffread ensGene.gff3 -T -o ensGene.gtf
+gffread ensGene.gtf -o ensGene.gff3
 ```
 
 ### Prepare Indexed Reference From GFF3 File
