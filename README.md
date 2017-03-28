@@ -1,4 +1,4 @@
-***DEIsoM*** is a software using hierarchical Bayesian model for ***D***ifferentially ***E***xpressed ***Iso***form detection from ***M***ultiple biological replicates for identifying DE (Differentially Expressed) isoforms from multiple biological replicates representing two conditions, e.g., multiple samples from healthy and diseased subjects.
+***DEIsoM*** is a software using hierarchical Bayesian model for **D**ifferentially **E**xpressed **Iso**form detection from **M**ultiple biological replicates for identifying DE (Differentially Expressed) isoforms from multiple biological replicates representing two conditions, e.g., multiple samples from healthy and diseased subjects.
 
 # Table of Contents
 1. [Introduction](#introduction)
