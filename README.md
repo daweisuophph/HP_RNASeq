@@ -26,7 +26,8 @@ In the folder third_party, we have prepared the some third_party libraries:
   - `./configure` and `make`. See its README for more installation instructions.
 - [samtools](http://samtools.sourceforge.net/)
   - Used for reading bam files
-  - ./configure` and `make`. See its README for more installation instructions.`
+  - `cd htslib-1.3.1`, `./configure` and `make`. 
+  - `cd ..`, `./configure` and `make`. See its README for more installation instructions.
 
 ### Build
 After correctly installing and configure boost, liblbfgs and samtools, we can install DEIsoM now.
